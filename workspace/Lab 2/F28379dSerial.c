@@ -929,3 +929,4 @@ uint16_t serial_printf(serialSCIA_t *s, char *fmt, ...)
 
     return serial_sendSCIA(s,serial_printf_bufSCIA,strlen(serial_printf_bufSCIA));
 }
+
