@@ -16,7 +16,8 @@
 #include "device.h"
 #include "F28379dSerial.h"
 #include "LEDPatterns.h"
-#include "song.h"
+//#include "song.h"
+#include "Amongussong2.h"
 #include "dsp.h"
 #include "fpu32/fpu_rfft.h"
 
@@ -43,6 +44,9 @@ uint16_t LEDdisplaynum = 0;
 uint16_t upCounting = 1; //Lab 2: Create upcounting variable
 float motorPower = 0; //create motor power
 uint16_t upCountingMotor = 0; // create motor cycle counter
+float motorAngle = 0.0; //create motor angle
+uint16_t upCountingMotorAngle = 0; // create motor angle cycle counter
+uint32_t songIndex = 0; //create var to keep track of song progress
 
 void setEPWM2A(float controleffort){
     if(controleffort > 10){ //lab2: cap from -10 to positive 10
@@ -63,6 +67,36 @@ void setEPWM2B(float controleffort){
         controleffort = -10;
     }
     EPwm2Regs.CMPB.bit.CMPB = ((controleffort + 10.0) / 20.0) * EPwm2Regs.TBPRD; //Lab2: shift control effort to positive then scale it to 0-2500
+}
+
+void setEPWM8A_RCServo(float angle){
+
+    if(angle > 90){ //lab2: cap from -90 to positive 90
+        angle = 90;
+    }
+    else if(angle < -90){
+        angle = -90;
+    }
+    float duty = (angle)*(0.04/90) + .08; //Lab2: Normalize angle to a duty cycle value
+    uint16_t compareReg = duty * EPwm8Regs.TBPRD; //lab2: set compareReg var to get correct duty cycle
+
+    EPwm8Regs.CMPA.bit.CMPA = compareReg; //Lab2: set CMPA to compareReg to get correct duty
+
+}
+
+void setEPWM8B_RCServo(float angle){
+
+    if(angle > 90){ //lab2: cap from -90 to positive 90
+        angle = 90;
+    }
+    else if(angle < -90){
+        angle = -90;
+    }
+    float duty = (angle)*(0.04/90) + .08; //Lab2: Normalize angle to a duty cycle value
+    uint16_t compareReg = duty * EPwm8Regs.TBPRD; //lab2: set compareReg var to get correct duty cycle
+
+    EPwm8Regs.CMPB.bit.CMPB = compareReg; //Lab2: set CMPB to compareReg to get correct duty
+
 }
 
 void main(void)
@@ -272,7 +306,7 @@ void main(void)
     // Configure CPU-Timer 0, 1, and 2 to interrupt every given period:
     // 200MHz CPU Freq,                       Period (in uSeconds)
     ConfigCpuTimer(&CpuTimer0, LAUNCHPAD_CPU_FREQUENCY, 10000);
-    ConfigCpuTimer(&CpuTimer1, LAUNCHPAD_CPU_FREQUENCY, 20000);
+    ConfigCpuTimer(&CpuTimer1, LAUNCHPAD_CPU_FREQUENCY, 300000);
     ConfigCpuTimer(&CpuTimer2, LAUNCHPAD_CPU_FREQUENCY, 1000);
 
     // Enable CpuTimer Interrupt bit TIE
@@ -315,17 +349,17 @@ void main(void)
     EPwm8Regs.TBCTL.bit.CTRMODE = 0; //Lab2: Set counter mode to count up
     EPwm8Regs.TBCTL.bit.FREE_SOFT = 2; //Lab2: Set to free run
     EPwm8Regs.TBCTL.bit.PHSEN = 0; //Lab2: Disable phase loading
-    EPwm8Regs.TBCTL.bit.CLKDIV = 0; //Lab2: Set clock div to 1
+    EPwm8Regs.TBCTL.bit.CLKDIV = 4; //Lab2: Set clock div to 4 to divide by 16 to put in range of 50hz pwm
     EPwm8Regs.TBCTR = 0; //Lab 2: Clear CTR reg
-    EPwm8Regs.TBPRD = 2500; //Lab 2: set carrier freq to to 20 khz (50 * 10^6 / (20 * 10^3))
-    EPwm8Regs.CMPA.bit.CMPA = 0; //Lab 2: Set duty cycle to 0
+    EPwm8Regs.TBPRD = 62500; //Lab 2: set carrier freq to to 50 hz = (50 * 10^6 /16 / (62500))
+    EPwm8Regs.CMPA.bit.CMPA = 5000; //Lab 2: Set duty cycle to start at 8%
     EPwm8Regs.AQCTLA.bit.CAU = 1; //Lab 2: Clear output once ctr reaches compare
     EPwm8Regs.AQCTLA.bit.ZRO = 2; //Lab 2: Set output high once ctr reaches compare
     EPwm8Regs.TBPHS.bit.TBPHS = 0; //Lab 2: just in case
 
     EPwm8Regs.AQCTLB.bit.CBU = 1; //Lab 2: Clear output once ctr reaches compare
     EPwm8Regs.AQCTLB.bit.ZRO = 2; //Lab 2: Set output high once ctr reaches compare
-    EPwm8Regs.CMPB.bit.CMPB = 0; //Lab 2: Set duty cycle to 0
+    EPwm8Regs.CMPB.bit.CMPB = 5000; //Lab 2: Set duty cycle to 0
 
     GPIO_SetupPinMux(14, GPIO_MUX_CPU1, 1); //Lab 2: Setup GPIO14 to EPWM8A (select 1)
     GPIO_SetupPinMux(15, GPIO_MUX_CPU1, 1); //Lab 2: Setup GPIO15 to EPWM8B (select 1)
@@ -333,12 +367,12 @@ void main(void)
     EPwm9Regs.TBCTL.bit.CTRMODE = 0; //Lab2: Set counter mode to count up
     EPwm9Regs.TBCTL.bit.FREE_SOFT = 2; //Lab2: Set to free run
     EPwm9Regs.TBCTL.bit.PHSEN = 0; //Lab2: Disable phase loading
-    EPwm9Regs.TBCTL.bit.CLKDIV = 0; //Lab2: Set clock div to 1
+    EPwm9Regs.TBCTL.bit.CLKDIV = 1; //Lab2: Set clock div to 1
     EPwm9Regs.TBCTR = 0; //Lab 2: Clear CTR reg
-    EPwm9Regs.TBPRD = 2500; //Lab 2: set carrier freq to to 20 khz (50 * 10^6 / (20 * 10^3))
-    EPwm9Regs.CMPA.bit.CMPA = 0; //Lab 2: Set duty cycle to 0
-    EPwm9Regs.AQCTLA.bit.CAU = 1; //Lab 2: Clear output once ctr reaches compare
-    EPwm9Regs.AQCTLA.bit.ZRO = 2; //Lab 2: Set output high once ctr reaches compare
+    EPwm9Regs.TBPRD = 0; //Lab 2: set carrier freq to to 20 khz (50 * 10^6 / (20 * 10^3))
+    //EPwm9Regs.CMPA.bit.CMPA = 0; //Lab 2: Set duty cycle to 0
+    EPwm9Regs.AQCTLA.bit.CAU = 0; //Lab 2: Ignore the value stored in CMPA, and do nothing when CMPA = counts
+    EPwm9Regs.AQCTLA.bit.ZRO = 3; //Lab 2: Set ZRO to 11 in order to have the PWM toggle every time it hits 0
     EPwm9Regs.TBPHS.bit.TBPHS = 0; //Lab 2: just in case
     GPIO_SetupPinMux(16, GPIO_MUX_CPU1, 5); //Lab 2: Setup GPIO16 to EPWM9A (select 5)
 
@@ -368,7 +402,7 @@ void main(void)
 	// Enable SWI in the PIE: Group 12 interrupt 9
     PieCtrlRegs.PIEIER12.bit.INTx9 = 1;
 	
-	init_serialSCIB(&SerialB,115200);
+	//init_serialSCIB(&SerialB,115200);
 	init_serialSCIC(&SerialC,115200);
 	init_serialSCID(&SerialD,115200);
     // Enable global Interrupts and higher priority real-time debug events
@@ -439,7 +473,15 @@ __interrupt void cpu_timer0_isr(void)
 // cpu_timer1_isr - CPU Timer1 ISR
 __interrupt void cpu_timer1_isr(void)
 {
-		
+    if(songIndex >= SONG_LENGTH){ //if song length is exceeded do the following
+        GPIO_SetupPinMux(16, GPIO_MUX_CPU1, 0); //Lab 2: Setup GPIO16 back to GPIO16 (select 0)
+        GpioDataRegs.GPACLEAR.bit.GPIO16 = 1; //lab 2: set GPIO16 low
+    }
+    else{
+        EPwm9Regs.TBPRD = songarray[songIndex]; //play the given note
+        songIndex++; //increment to the next note
+    }
+
     CpuTimer1.InterruptCount++;
 }
 
@@ -465,7 +507,7 @@ __interrupt void cpu_timer2_isr(void)
     }
 
 
-    if(motorPower >= 10){  //Lab 2: Check to see if CMPA has reached the period
+    if(motorPower >= 10){  //Lab 2: Cap motor power
         upCountingMotor = 0; //Lab 2: set to count down after hitting
     }
     else if (motorPower <= -10){ // Lab 2: Check to see if it hit -10 while downcounting
@@ -478,9 +520,29 @@ __interrupt void cpu_timer2_isr(void)
     else{ //Lab 2: Otherwise (if downcounting)
         motorPower-=.005;//interrupt is called every 1ms, every 5s go from 0 to 10 lab 2
     }
-    setEPWM2A(motorPower);
 
-    setEPWM2B(motorPower);
+
+    //MOTOR ANGLE CODE
+    if(motorAngle >= 90){  //Lab 2: Cap motor angle
+        upCountingMotorAngle = 0; //Lab 2: set to count down after hitting
+    }
+    else if (motorAngle <= -90){ // Lab 2: Check to see if it hit -90 while downcounting
+        upCountingMotorAngle = 1; //Lab 2: Swap to upcounting
+    }
+
+    if(upCountingMotor){ //Lab 2: If upcounting right now
+        motorAngle+=.05; //interrupt is called every 1ms, every s travel 50 degrees  lab 2
+    }
+    else{ //Lab 2: Otherwise (if downcounting)
+        motorAngle-=.05;//interrupt is called every 1ms, every s travel 50 degrees lab 2
+    }
+
+
+    setEPWM2A(motorPower); // lab 2 vary motor power
+    setEPWM2B(motorPower);// lab 2 vary motor power
+
+    setEPWM8A_RCServo(motorAngle); //lab2 vary servo angle
+    setEPWM8B_RCServo(motorAngle);//lab2 vary servo angle
 
     CpuTimer2.InterruptCount++;
 	
