@@ -33,7 +33,8 @@ __interrupt void cpu_timer1_isr(void);
 __interrupt void cpu_timer2_isr(void);
 __interrupt void SWI_isr(void);
 __interrupt void ADCD_ISR(void);
-
+__interrupt void ADCA_ISR(void);
+__interrupt void ADCB_ISR(void);
 
 // Count variables
 uint32_t numTimer0calls = 0;
@@ -43,13 +44,45 @@ uint16_t UARTPrint = 0;
 uint16_t LEDdisplaynum = 0;
 uint16_t adcd0result = 0; //lab 4 initialize global adcd reading value
 uint16_t adcd1result = 0;//lab 4 initialize global adcd reading value
+uint16_t adca0result = 0; //lab 4 initialize global adca reading value
+uint16_t adca1result = 0;//lab 4 initialize global adca reading value
+uint16_t adcb0result = 0;//lab 4 initialize global adca reading value
 uint32_t adcd1_counter = 0; //lab 4 initialize counter
-float adcd0resultv = 0;
+uint32_t adca1_counter = 0; //lab 4 initialize counter
+uint32_t adcb1_counter = 0; //lab 4 initialize counter
+
+float adcd0resultv = 0; //Lab 4: Voltage Result from d0
+float adca0resultv = 0; //Lab 4: Voltage Result from a0
+float adca1resultv = 0; //Lab 4: Voltage Result from a1
+float adcb0resultv = 0; //Lab 4: Voltage Result from b0
 //This function sets DACA to the voltage between 0V and 3V passed to this function.
 //If outside 0V to 3V the output is saturated at 0V to 3V
 //Example code
 //float myu = 2.25;
 //setDACA(myu); // DACA will now output 2.25 Volts
+
+//Lab 4: add variables for filter
+//xk is the current ADC reading, xk_1 is the ADC reading one millisecond ago, xk_2 two milliseconds ago,etc
+float xk = 0;
+/*
+float xk_1 = 0;
+float xk_2 = 0;
+float xk_3 = 0;
+float xk_4 = 0;
+*/
+
+
+
+//#define FILTER_ORDER 21 //Lab 4: define a var to represent the order of the filter
+#define FILTER_ORDER 100 //Lab 4: define a var to represent the order of the filter
+float x_array[FILTER_ORDER+1]; //lab4: create array of prev values
+//yk is the filtered value
+float yk = 0;
+
+float x1_array[FILTER_ORDER+1]; //lab4: create array of prev values
+float y1k = 0; //lab4 second filter
+
+
 void setDACA(float dacouta0) {
     int16_t DACOutInt = 0;
     DACOutInt = dacouta0 / 3.0 * 4095.0; // perform scaling of 0 – almost 3V to 0 - 4095//lab 4, scaling input voltage to integer
@@ -223,6 +256,11 @@ void main(void)
     GPIO_SetupPinMux(8, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(8, GPIO_INPUT, GPIO_PULLUP);
 
+    //Mic Timer
+    GPIO_SetupPinMux(52, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(52, GPIO_OUTPUT, GPIO_PUSHPULL);
+    GpioDataRegs.GPBCLEAR.bit.GPIO52 = 1;
+
 
     // Clear all interrupts and initialize PIE vector table:
     // Disable CPU interrupts
@@ -260,7 +298,9 @@ void main(void)
     PieVectTable.SCIB_TX_INT = &TXBINT_data_sent;
     PieVectTable.SCIC_TX_INT = &TXCINT_data_sent;
     PieVectTable.SCID_TX_INT = &TXDINT_data_sent;
-    PieVectTable.ADCD1_INT = &ADCD_ISR;
+    //PieVectTable.ADCD1_INT = &ADCD_ISR; //Lb 4: ADCD_ISR inturrupt
+    PieVectTable.ADCA1_INT = &ADCA_ISR;
+    PieVectTable.ADCB1_INT = &ADCB_ISR;
 
     PieVectTable.EMIF_ERROR_INT = &SWI_isr;
     EDIS;    // This is needed to disable write to EALLOW protected registers
@@ -293,7 +333,7 @@ void main(void)
 	EPwm5Regs.TBPHS.bit.TBPHS = 0x0000; // Phase is 0
 	EPwm5Regs.TBCTL.bit.PHSEN = 0; // Disable phase loading
 	EPwm5Regs.TBCTL.bit.CLKDIV = 0; // divide by 1 50Mhz Clock
-	EPwm5Regs.TBPRD = 50000; // Set Period to 1ms sample. Input clock is 50MHz.
+	EPwm5Regs.TBPRD = 50000/10; // Set Period to 1ms sample. Input clock is 50MHz.
 	// Notice here that we are not setting CMPA or CMPB because we are not using the PWM signal
 	EPwm5Regs.ETSEL.bit.SOCAEN = 1; //enable SOCA
 	EPwm5Regs.TBCTL.bit.CTRMODE = 0; //unfreeze, and enter up count mode
@@ -327,32 +367,23 @@ void main(void)
 	//Select the channels to convert and end of conversion flag
 	//Many statements commented out, To be used when using ADCA or ADCB
 	//ADCA
-//	AdcaRegs.ADCSOC0CTL.bit.CHSEL = 0; //SOC0 will convert Channel you choose Does not have to be A0
-//	AdcaRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-//	AdcaRegs.ADCSOC0CTL.bit.TRIGSEL = 0xD;// EPWM5 ADCSOCA or another trigger you choose will trigger SOC0
-//	AdcaRegs.ADCSOC1CTL.bit.CHSEL = 1; //SOC1 will convert Channel you choose Does not have to be A1
-//	AdcaRegs.ADCSOC1CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-//	AdcaRegs.ADCSOC1CTL.bit.TRIGSEL = 0xD;// EPWM5 ADCSOCA or another trigger you choose will trigger SOC1
-//	AdcaRegs.ADCINTSEL1N2.bit.INT1SEL = 0x1; //set to last SOC that is converted and it will set INT1 flag ADCA1
-//	AdcaRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
-//	AdcaRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
+    AdcaRegs.ADCSOC0CTL.bit.CHSEL = 2; // set SOC0 to convert pin ADCIN2
+	AdcaRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
+	AdcaRegs.ADCSOC0CTL.bit.TRIGSEL = 0xD;// EPWM5 ADCSOCA or another trigger you choose will trigger SOC0
+	AdcaRegs.ADCSOC1CTL.bit.CHSEL = 3; //SOC1 will convert Channel ADCIN3
+	AdcaRegs.ADCSOC1CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
+	AdcaRegs.ADCSOC1CTL.bit.TRIGSEL = 0xD;// EPWM5 ADCSOCA or another trigger you choose will trigger SOC1
+	AdcaRegs.ADCINTSEL1N2.bit.INT1SEL = 0x1; //set to last SOC that is converted and it will set INT1 flag ADCA1
+	AdcaRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
+	AdcaRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
 //
-//	//ADCB
-//	AdcbRegs.ADCSOC0CTL.bit.CHSEL = 0; //SOC0 will convert Channel you choose Does not have to be B0
-//	AdcbRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-//	AdcbRegs.ADCSOC0CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA or another trigger you choose will trigger SOC0
-//	AdcbRegs.ADCSOC1CTL.bit.CHSEL = ???; //SOC1 will convert Channel you choose Does not have to be B1
-//	AdcbRegs.ADCSOC1CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-//	AdcbRegs.ADCSOC1CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA or another trigger you choose will trigger SOC1
-//	AdcbRegs.ADCSOC2CTL.bit.CHSEL = ???; //SOC2 will convert Channel you choose Does not have to be B2
-//	AdcbRegs.ADCSOC2CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-//	AdcbRegs.ADCSOC2CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA or another trigger you choose will trigger SOC2
-//	AdcbRegs.ADCSOC3CTL.bit.CHSEL = ???; //SOC3 will convert Channel you choose Does not have to be B3
-//	AdcbRegs.ADCSOC3CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-//	AdcbRegs.ADCSOC3CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA or another trigger you choose will trigger SOC3
-//	AdcbRegs.ADCINTSEL1N2.bit.INT1SEL = ???; //set to last SOC that is converted and it will set INT1 flag ADCB1
-//	AdcbRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
-//	AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
+	//ADCB
+	AdcbRegs.ADCSOC0CTL.bit.CHSEL = 4; //SOC0 will convert Channel you choose Does not have to be B0
+	AdcbRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
+	AdcbRegs.ADCSOC0CTL.bit.TRIGSEL = 0xD; // EPWM5 ADCSOCA or another trigger you choose will trigger SOC0
+	AdcbRegs.ADCINTSEL1N2.bit.INT1SEL = 0x0; //set to last SOC that is converted and it will set INT1 flag ADCB1
+	AdcbRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
+	AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
 
 	//ADCD
 	AdcdRegs.ADCSOC0CTL.bit.CHSEL = 0; // set SOC0 to convert pin D0
@@ -400,7 +431,13 @@ void main(void)
     PieCtrlRegs.PIEIER1.bit.INTx7 = 1;
 
     //lab 4 enable pie interrupt 1.6
-    PieCtrlRegs.PIEIER1.bit.INTx6 = 1;
+    //PieCtrlRegs.PIEIER1.bit.INTx6 = 1;
+
+    //lab4: enable pie interrupt 1.1 for joystick
+    //PieCtrlRegs.PIEIER1.bit.INTx1 = 1;
+
+    //lab4: enable pie interrupt 1.2 for ADCB1 Mic
+    PieCtrlRegs.PIEIER1.bit.INTx2 = 1;
 
 	// Enable SWI in the PIE: Group 12 interrupt 9
     PieCtrlRegs.PIEIER12.bit.INTx9 = 1;
@@ -417,25 +454,15 @@ void main(void)
     while(1)
     {
         if (UARTPrint == 1 ) {
-			serial_printf(&SerialA,"ADC Voltage: %.2f  \r\n ", adcd0resultv);
+			serial_printf(&SerialA,"Pot Axis 1: %.2f  \r\n ", yk); //Lab 4: Print out axis 1 on joystick
+			serial_printf(&SerialA,"Pot Axis 2: %.2f  \r\n\n ", y1k);//Lab 4: Print out axis 2 on joystick
             UARTPrint = 0;
         }
     }
 }
 
-//Lab 4: add variables for filter
-//xk is the current ADC reading, xk_1 is the ADC reading one millisecond ago, xk_2 two milliseconds ago,etc
-float xk = 0;
-/*
-float xk_1 = 0;
-float xk_2 = 0;
-float xk_3 = 0;
-float xk_4 = 0;
-*/
-const uint16_t FILTER_ORDER = 21; //Lab 4: define a var to represent the order of the filter
-float x_array[FILTER_ORDER+1]; //lab4: create array of prev values
-//yk is the filtered value
-float yk = 0;
+
+
 //b is the filter coefficients
 //float b[5] = {0.2,0.2,0.2,0.2,0.2}; // 0.2 is 1/5th therefore a 5 point average
 /*float b[5] = {    3.3833240118424500e-02,
@@ -444,7 +471,7 @@ float yk = 0;
 2.4012702387971543e-01,
 3.3833240118424500e-02};
 */
-float b[22] = {  -2.3890045153263611e-03,
+float b[22] = {  -2.3890045153263611e-03, //Lab 4: 21st order low pass filter
                 -3.3150057635348224e-03,
                 -4.6136191242627002e-03,
                 -4.1659855521681268e-03,
@@ -466,6 +493,186 @@ float b[22] = {  -2.3890045153263611e-03,
                 -4.6136191242627002e-03,
                 -3.3150057635348224e-03,
                 -2.3890045153263611e-03};
+
+//float bmic[32] = {  -6.3046914864397922e-04, //Lab 4: 31st order low pass filter
+//                    -1.8185681242784432e-03,
+//                    -2.5619416124584822e-03,
+//                    -1.5874939943956356e-03,
+//                    2.3695126689747326e-03,
+//                    8.3324969783531780e-03,
+//                    1.1803612855040625e-02,
+//                    6.7592967793297151e-03,
+//                    -9.1745119977290398e-03,
+//                    -2.9730906886035850e-02,
+//                    -3.9816452266421651e-02,
+//                    -2.2301647638687881e-02,
+//                    3.1027965907247105e-02,
+//                    1.1114350049251465e-01,
+//                    1.9245540210070616e-01,
+//                    2.4373020388648489e-01,
+//                    2.4373020388648489e-01,
+//                    1.9245540210070616e-01,
+//                    1.1114350049251465e-01,
+//                    3.1027965907247105e-02,
+//                    -2.2301647638687881e-02,
+//                    -3.9816452266421651e-02,
+//                    -2.9730906886035850e-02,
+//                    -9.1745119977290398e-03,
+//                    6.7592967793297151e-03,
+//                    1.1803612855040625e-02,
+//                    8.3324969783531780e-03,
+//                    2.3695126689747326e-03,
+//                    -1.5874939943956356e-03,
+//                    -2.5619416124584822e-03,
+//                    -1.8185681242784432e-03,
+//                    -6.3046914864397922e-04};
+
+float bmic[101] = {  2.0089131384901197e-03, //lab 4: bandpass filter for mic to allow 2000 hz freq
+                    6.4032873499578040e-04,
+                    -1.7662310132503288e-03,
+                    -1.8966231855838251e-03,
+                    7.9038298787438197e-04,
+                    2.8250866960543826e-03,
+                    9.7274726769560108e-04,
+                    -2.8535932093218977e-03,
+                    -3.2069079180517828e-03,
+                    1.3777460739364028e-03,
+                    5.0108857805228734e-03,
+                    1.7369488778204004e-03,
+                    -5.0869489066624630e-03,
+                    -5.6717260737981379e-03,
+                    2.4066077632725297e-03,
+                    8.6179538038498871e-03,
+                    2.9352017836365030e-03,
+                    -8.4357135384937401e-03,
+                    -9.2235281203421979e-03,
+                    3.8369713729420702e-03,
+                    1.3470983718227284e-02,
+                    4.4992711557421761e-03,
+                    -1.2684979985041140e-02,
+                    -1.3611937750688167e-02,
+                    5.5600514925787251e-03,
+                    1.9176967391055018e-02,
+                    6.2956283333650978e-03,
+                    -1.7455271677881148e-02,
+                    -1.8429536833842467e-02,
+                    7.4103785848253561e-03,
+                    2.5171457314971404e-02,
+                    8.1418571044648731e-03,
+                    -2.2250769713411937e-02,
+                    -2.3165078063428872e-02,
+                    9.1879041586407240e-03,
+                    3.0795414085640505e-02,
+                    9.8318928762857697e-03,
+                    -2.6528873794684965e-02,
+                    -2.7276081156801475e-02,
+                    1.0686709091186523e-02,
+                    3.5390668308456406e-02,
+                    1.1166118673320274e-02,
+                    -2.9780034614308684e-02,
+                    -3.0269173855075916e-02,
+                    1.1725680290077527e-02,
+                    3.8398491060813049e-02,
+                    1.1981403290429368e-02,
+                    -3.1604759414221834e-02,
+                    -3.1774940699058361e-02,
+                    1.2176082500102338e-02,
+                    3.9444917234878515e-02,
+                    1.2176082500102338e-02,
+                    -3.1774940699058361e-02,
+                    -3.1604759414221834e-02,
+                    1.1981403290429368e-02,
+                    3.8398491060813049e-02,
+                    1.1725680290077527e-02,
+                    -3.0269173855075916e-02,
+                    -2.9780034614308684e-02,
+                    1.1166118673320274e-02,
+                    3.5390668308456406e-02,
+                    1.0686709091186523e-02,
+                    -2.7276081156801475e-02,
+                    -2.6528873794684965e-02,
+                    9.8318928762857697e-03,
+                    3.0795414085640505e-02,
+                    9.1879041586407240e-03,
+                    -2.3165078063428872e-02,
+                    -2.2250769713411937e-02,
+                    8.1418571044648731e-03,
+                    2.5171457314971404e-02,
+                    7.4103785848253561e-03,
+                    -1.8429536833842467e-02,
+                    -1.7455271677881148e-02,
+                    6.2956283333650978e-03,
+                    1.9176967391055018e-02,
+                    5.5600514925787251e-03,
+                    -1.3611937750688167e-02,
+                    -1.2684979985041140e-02,
+                    4.4992711557421761e-03,
+                    1.3470983718227284e-02,
+                    3.8369713729420702e-03,
+                    -9.2235281203421979e-03,
+                    -8.4357135384937401e-03,
+                    2.9352017836365030e-03,
+                    8.6179538038498871e-03,
+                    2.4066077632725297e-03,
+                    -5.6717260737981379e-03,
+                    -5.0869489066624630e-03,
+                    1.7369488778204004e-03,
+                    5.0108857805228734e-03,
+                    1.3777460739364028e-03,
+                    -3.2069079180517828e-03,
+                    -2.8535932093218977e-03,
+                    9.7274726769560108e-04,
+                    2.8250866960543826e-03,
+                    7.9038298787438197e-04,
+                    -1.8966231855838251e-03,
+                    -1.7662310132503288e-03,
+                    6.4032873499578040e-04,
+                    2.0089131384901197e-03};
+
+
+//lab 4 ADCA interrupt service routine
+__interrupt void ADCA_ISR(void){ //Lab 4: Joystick reading/filtering
+    adca0result = AdcaResultRegs.ADCRESULT0;
+    adca1result = AdcaResultRegs.ADCRESULT1;
+
+    // Here covert ADCIND2 to volts
+    adca0resultv = adca0result / 4096.0 * 3.0;
+    // Here covert ADCIND3 to volts
+    adca1resultv = adca1result / 4096.0 * 3.0;
+
+    //yk = b[0]*adcd0resultv + b[1]*xk_1 + b[2]*xk_2 + b[3]*xk_3 + b[4]*xk_4;  //lab 4: weighted average
+    x_array[0] = adca0resultv; //lab 4: set the first element (xk_0) to the newest reading
+
+    yk =  b[0]*x_array[0];
+    for (int i = 1; i < FILTER_ORDER+1; i++){
+        yk += b[i]*x_array[i];
+    }
+
+    for(int i=FILTER_ORDER; i>0; i--){ //lab 4: count down from the last element to 0
+        x_array[i] = x_array[i-1]; //lab 4: assign each element to the element before
+    }
+
+    //ADCA1result
+    x1_array[0] = adca1resultv; //lab 4: set the first element (xk_0) to the newest reading
+
+    y1k =  b[0]*x1_array[0];
+    for (int i = 1; i < FILTER_ORDER+1; i++){
+        y1k += b[i]*x1_array[i];
+    }
+
+    for(int i=FILTER_ORDER; i>0; i--){ //lab 4: count down from the last element to 0
+        x1_array[i] = x1_array[i-1]; //lab 4: assign each element to the element before
+    }
+
+    if(adca1_counter % 100 == 0){
+      UARTPrint = 1;
+    }
+
+    adca1_counter++;
+
+    AdcaRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //clear interrupt flag
+    PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
+}
 
 //lab 4 ADCD interrupt service routine
 __interrupt void ADCD_ISR(void){
@@ -511,6 +718,43 @@ __interrupt void ADCD_ISR(void){
 
      adcd1_counter++;
 
+}
+
+
+
+//lab 4 ADCB Exercise
+__interrupt void ADCB_ISR(void){
+
+     GpioDataRegs.GPBSET.bit.GPIO52 = 1; //lab 4 logic analyzer timing output
+     adcb0result = AdcbResultRegs.ADCRESULT0;
+
+
+     // Here covert ADCINB4 to volts
+     adcb0resultv = adcb0result / 4096.0 * 3.0;
+
+     x_array[0] = adcb0resultv; //lab 4: set the first element (xk_0) to the newest reading
+
+     yk =  bmic[0]*x_array[0];
+     for (int i = 1; i < FILTER_ORDER+1; i++){
+         yk += bmic[i]*x_array[i];
+     }
+
+     for(int i=FILTER_ORDER; i>0; i--){ //lab 4: count down from the last element to 0
+         x_array[i] = x_array[i-1]; //lab 4: assign each element to the element before
+     }
+
+     // Here write voltages value to DACA to echo to scope
+     setDACA(yk+1.5); //Lab 4: Include offset for DAC
+     //setDACA(adcb0resultv); //for first demo lab 4
+     AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //clear interrupt flag
+     PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
+
+//     if(adcb1_counter % 100 == 0){
+//       UARTPrint = 1;
+//     }
+//
+//     adcd1_counter++;
+      GpioDataRegs.GPBCLEAR.bit.GPIO52 = 1; //lab 4 logic analyzer timing output
 }
 
 
@@ -579,7 +823,7 @@ __interrupt void cpu_timer2_isr(void)
     CpuTimer2.InterruptCount++;
 	
 	if ((CpuTimer2.InterruptCount % 10) == 0) {
-		UARTPrint = 1;
+		//UARTPrint = 1;
 	}
 }
 
