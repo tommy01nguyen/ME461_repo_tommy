@@ -3,7 +3,7 @@
 //
 // TITLE:  Lab Starter
 //#############################################################################
-//INITIALS: MZTN
+//INITIALS: TNMZ
 // Included Files
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +34,13 @@ __interrupt void SWI_isr(void);
 __interrupt void SPIB_isr(void);
 
 void setupSPib(void);
+float readEncRight(void);
+float readEncLeft(void);
+void init_eQEPs(void);
+
+void setEPWM2A(float controleffort);
+void setEPWM2B(float controleffort);
+
 
 // Count variables
 uint32_t numTimer0calls = 0;
@@ -69,6 +76,59 @@ float AccelX = 0;
 float AccelY = 0;
 float AccelZ = 0;
 
+float wheelLeft = 0;
+float wheelRight = 0;
+
+float radPerFootRight = 5.1;
+float radPerFootLeft = 5.1;
+
+float uLeft = 5;
+float uRight = 5;
+
+float lastWheelLeft = 0;
+float lastWheelRight = 0;
+
+float leftVel = 0;
+float rightVel = 0;
+
+//TNMZ Define PID consts
+
+float kp = 3;
+float ki = 25;
+
+
+float Vref = 0;
+
+float iL = 0;
+float iR = 0;
+
+float eL = 0;
+float eR = 0;
+float eLPrev = 0;
+float eRPrev = 0;
+float iLprev = 0;
+float iRprev = 0;
+
+float eTurn = 0;
+float kpTurn = 3;
+float turn = 0;
+
+//TNMZ global variables for wireless comm
+float printLV3 = 0;
+float printLV4 = 0;
+float printLV5 = 0;
+float printLV6 = 0;
+float printLV7 = 0;
+float printLV8 = 0;
+float x = 0;
+float y = 0;
+float bearing = 0;
+extern uint16_t NewLVData;
+extern float fromLVvalues[LVNUM_TOFROM_FLOATS];
+extern LVSendFloats_t DataToLabView;
+extern char LVsenddata[LVNUM_TOFROM_FLOATS*4+2];
+extern uint16_t newLinuxCommands;
+extern float LinuxCommands[CMDNUM_FROM_FLOATS];
 
 void setupSpib(void) //Call this function in main() somewhere after the DINT; line of code.
 {
@@ -327,6 +387,8 @@ void main(void)
 
     InitGpio();
 
+
+
     // Blue LED on LaunchPad
     GPIO_SetupPinMux(31, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(31, GPIO_OUTPUT, GPIO_PUSHPULL);
@@ -527,7 +589,7 @@ void main(void)
     // Configure CPU-Timer 0, 1, and 2 to interrupt every given period:
     // 200MHz CPU Freq,                       Period (in uSeconds)
     ConfigCpuTimer(&CpuTimer0, LAUNCHPAD_CPU_FREQUENCY, 1000);
-    ConfigCpuTimer(&CpuTimer1, LAUNCHPAD_CPU_FREQUENCY, 20000);
+    ConfigCpuTimer(&CpuTimer1, LAUNCHPAD_CPU_FREQUENCY, 4000); //TNMZ timeout every 4ms
     ConfigCpuTimer(&CpuTimer2, LAUNCHPAD_CPU_FREQUENCY, 10000);
 
     // Enable CpuTimer Interrupt bit TIE
@@ -536,7 +598,26 @@ void main(void)
     CpuTimer2Regs.TCR.all = 0x4000;
 
     init_serialSCIA(&SerialA, 115200);
+    init_eQEPs(); //TNMZ initializing encoder
     setupSpib();
+
+    EPwm2Regs.TBCTL.bit.CTRMODE = 0; //Lab2: Set counter mode to count up
+    EPwm2Regs.TBCTL.bit.FREE_SOFT = 2; //Lab2: Set to free run
+    EPwm2Regs.TBCTL.bit.PHSEN = 0; //Lab2: Disable phase loading
+    EPwm2Regs.TBCTL.bit.CLKDIV = 0; //Lab2: Set clock div to 1
+    EPwm2Regs.TBCTR = 0; //Lab 2: Clear CTR reg
+    EPwm2Regs.TBPRD = 2500; //Lab 2: set carrier freq to to 20 khz (50 * 10^6 / (20 * 10^3))
+    EPwm2Regs.CMPA.bit.CMPA = 0; //Lab 2: Set duty cycle to 0
+    EPwm2Regs.AQCTLA.bit.CAU = 1; //Lab 2: Clear output once ctr reaches compare
+    EPwm2Regs.AQCTLA.bit.ZRO = 2; //Lab 2: Set output high once ctr reaches compare
+
+    EPwm2Regs.AQCTLB.bit.CBU = 1; //Lab 2: Clear output once ctr reaches compare
+    EPwm2Regs.AQCTLB.bit.ZRO = 2; //Lab 2: Set output high once ctr reaches compare
+    EPwm2Regs.CMPB.bit.CMPB = 0; //Lab 2: Set duty cycle to 0
+
+    EPwm2Regs.TBPHS.bit.TBPHS = 0; //Lab 2: just in case
+    GPIO_SetupPinMux(2, GPIO_MUX_CPU1, 1); //Lab 2: Setup GPIO2 to EPWM2A (select 1)
+    GPIO_SetupPinMux(3, GPIO_MUX_CPU1, 1); //Lab 2: Setup GPIO3 to EPWM2B (select 1)
 
     // Enable CPU int1 which is connected to CPU-Timer 0, CPU int13
     // which is connected to CPU-Timer 1, and CPU int 14, which is connected
@@ -579,7 +660,10 @@ void main(void)
                           "ADC1 Voltage: %.3f      ADC2 Voltage: %.3f\r\n",
                           ADC1v, ADC2v);*/
 
-            serial_printf(&SerialA,"Gyro X: %.2f  Y: %.2f  Z: %.2f      Accel X: %.2f  Y: %.2f  Z: %.2f \r\n",GyroX, GyroY, GyroZ, AccelX, AccelY, AccelZ);
+            //serial_printf(&SerialA,"Gyro X: %.2f  Y: %.2f  Z: %.2f      Accel X: %.2f  Y: %.2f  Z: %.2f \r\n",GyroX, GyroY, GyroZ, AccelX, AccelY, AccelZ);
+            serial_printf(&SerialA,"wheelLeft: %.2f  wheelRight: %.2f \r\n",wheelLeft, wheelRight);
+            serial_printf(&SerialA,"wheelLeftTravel: %.2f  wheelRightTravel: %.2f \r\n",wheelLeft / radPerFootLeft, wheelRight / radPerFootRight);
+            serial_printf(&SerialA,"leftVel: %.2f  rightVel: %.2f \r\n", leftVel, rightVel);
             UARTPrint = 0;
         }
     }
@@ -687,11 +771,84 @@ __interrupt void cpu_timer0_isr(void)
 
 }
 
+
 // cpu_timer1_isr - CPU Timer1 ISR
 __interrupt void cpu_timer1_isr(void)
 {
-
     CpuTimer1.InterruptCount++;
+
+    wheelLeft = readEncLeft(); //TNMZ read encoders
+    wheelRight = readEncRight();
+
+
+    leftVel = ((wheelLeft - lastWheelLeft)/.004)/radPerFootRight; //TNMZ read velocities from encoder previous counts over 4ms
+    rightVel = ((wheelRight - lastWheelRight)/.004)/radPerFootRight;
+
+    lastWheelLeft = wheelLeft; //store previous encoder value //TNMZ
+    lastWheelRight = wheelRight;
+
+    eTurn = turn + (leftVel - rightVel);
+
+    eL =  Vref - leftVel - kpTurn*eTurn;
+    eR = Vref - rightVel + kpTurn*eTurn;
+
+
+
+
+    iL = iLprev + 0.004 * (eL + eLPrev)/2;
+    iR = iRprev + 0.004 * (eR + eRPrev)/2;
+
+    uLeft = kp*eL + ki*iL;
+    uRight = kp*eR + ki*iR;
+
+    if (fabs(uLeft) >=10){
+      iL = iLprev;
+    }
+    if (fabs(uRight) >=10){
+      iR = iRprev;
+    }
+
+    setEPWM2A(uRight); ////TNMZ set epwm to uLeft and uRight. 2A is right
+    setEPWM2B(-1*uLeft);
+
+    eLPrev = eL;
+    eRPrev = eR;
+
+    iLprev = iL;
+    iRprev = iR;
+
+    if (NewLVData == 1) {
+     NewLVData = 0;
+     Vref = fromLVvalues[0];
+     turn = fromLVvalues[1];
+     printLV3 = fromLVvalues[2];
+     printLV4 = fromLVvalues[3];
+     printLV5 = fromLVvalues[4];
+     printLV6 = fromLVvalues[5];
+     printLV7 = fromLVvalues[6];
+     printLV8 = fromLVvalues[7];
+    }
+    if((CpuTimer1.InterruptCount % 62) == 0) { // change to the counter variable of you selected 4ms. timer
+     DataToLabView.floatData[0] = x;
+     DataToLabView.floatData[1] = y;
+     DataToLabView.floatData[2] = bearing;
+     DataToLabView.floatData[3] = 2.0*((float)numTimer0calls)*.001;
+     DataToLabView.floatData[4] = 3.0*((float)numTimer0calls)*.001;
+     DataToLabView.floatData[5] = (float)numTimer0calls;
+     DataToLabView.floatData[6] = (float)numTimer0calls*4.0;
+     DataToLabView.floatData[7] = (float)numTimer0calls*5.0;
+     LVsenddata[0] = '*'; // header for LVdata
+     LVsenddata[1] = '$';
+     for (int i=0;i<LVNUM_TOFROM_FLOATS*4;i++) {
+     if (i%2==0) {
+     LVsenddata[i+2] = DataToLabView.rawData[i/2] & 0xFF;
+     } else {
+     LVsenddata[i+2] = (DataToLabView.rawData[i/2]>>8) & 0xFF;
+     }
+     }
+     serial_sendSCID(&SerialD, LVsenddata, 4*LVNUM_TOFROM_FLOATS + 2);
+    }
+
 }
 
 // cpu_timer2_isr CPU Timer2 ISR
@@ -760,4 +917,91 @@ __interrupt void SPIB_isr(void)
 
 }
 
+//lab 6 copied code TNMZ
+void init_eQEPs(void) {
+    // setup eQEP1 pins for input
+    EALLOW;
+    //Disable internal pull-up for the selected output pins for reduced power consumption
+    GpioCtrlRegs.GPAPUD.bit.GPIO20 = 1; // Disable pull-up on GPIO20 (EQEP1A)
+    GpioCtrlRegs.GPAPUD.bit.GPIO21 = 1; // Disable pull-up on GPIO21 (EQEP1B)
+    GpioCtrlRegs.GPAQSEL2.bit.GPIO20 = 2; // Qual every 6 samples
+    GpioCtrlRegs.GPAQSEL2.bit.GPIO21 = 2; // Qual every 6 samples
+    EDIS;
+    // This specifies which of the possible GPIO pins will be EQEP1 functional pins.
+    // Comment out other unwanted lines.
+    GPIO_SetupPinMux(20, GPIO_MUX_CPU1, 1);
+    GPIO_SetupPinMux(21, GPIO_MUX_CPU1, 1);
+    EQep1Regs.QEPCTL.bit.QPEN = 0; // make sure eqep in reset
+    EQep1Regs.QDECCTL.bit.QSRC = 0; // Quadrature count mode
+    EQep1Regs.QPOSCTL.all = 0x0; // Disable eQep Position Compare
+    EQep1Regs.QCAPCTL.all = 0x0; // Disable eQep Capture
+    EQep1Regs.QEINT.all = 0x0; // Disable all eQep interrupts
+    EQep1Regs.QPOSMAX = 0xFFFFFFFF; // use full range of the 32 bit count
+    EQep1Regs.QEPCTL.bit.FREE_SOFT = 2; // EQep uneffected by emulation suspend in Code Composer
+    EQep1Regs.QPOSCNT = 0;
+    EQep1Regs.QEPCTL.bit.QPEN = 1; // Enable EQep
 
+    // setup QEP2 pins for input
+    EALLOW;
+    //Disable internal pull-up for the selected output pinsfor reduced power consumption
+    GpioCtrlRegs.GPBPUD.bit.GPIO54 = 1; // Disable pull-up on GPIO54 (EQEP2A)
+    GpioCtrlRegs.GPBPUD.bit.GPIO55 = 1; // Disable pull-up on GPIO55 (EQEP2B)
+    GpioCtrlRegs.GPBQSEL2.bit.GPIO54 = 2; // Qual every 6 samples
+    GpioCtrlRegs.GPBQSEL2.bit.GPIO55 = 2; // Qual every 6 samples
+    EDIS;
+    GPIO_SetupPinMux(54, GPIO_MUX_CPU1, 5); // set GPIO54 and eQep2A
+    GPIO_SetupPinMux(55, GPIO_MUX_CPU1, 5); // set GPIO54 and eQep2B
+    EQep2Regs.QEPCTL.bit.QPEN = 0; // make sure qep reset
+    EQep2Regs.QDECCTL.bit.QSRC = 0; // Quadrature count mode
+    EQep2Regs.QPOSCTL.all = 0x0; // Disable eQep Position Compare
+    EQep2Regs.QCAPCTL.all = 0x0; // Disable eQep Capture
+    EQep2Regs.QEINT.all = 0x0; // Disable all eQep interrupts
+    EQep2Regs.QPOSMAX = 0xFFFFFFFF; // use full range of the 32 bit count.
+    EQep2Regs.QEPCTL.bit.FREE_SOFT = 2; // EQep uneffected by emulation suspend
+    EQep2Regs.QPOSCNT = 0;
+    EQep2Regs.QEPCTL.bit.QPEN = 1; // Enable EQep
+}
+float readEncLeft(void) {
+    int32_t raw = 0;
+    uint32_t QEP_maxvalue = 0xFFFFFFFFU; //4294967295U
+    raw = EQep1Regs.QPOSCNT;
+    if (raw >= QEP_maxvalue/2) raw -= QEP_maxvalue; // I don't think this is needed and never true
+    // 100 slits in the encoder disk so 100 square waves per one revolution of the
+    // DC motor's back shaft. Then Quadrature Decoder mode multiplies this by 4 so 400 counts per one rev
+    // of the DC motor's back shaft. Then the gear motor's gear ratio is 30:1.
+    return (-1*raw*(2*3.14159265/(400.0*30))); //TNMZ return radians of wheel. 400 counts in one revolution, 2 pi radians in 1 revolution, 30:1 gear ratio.
+}
+float readEncRight(void) {
+    int32_t raw = 0;
+    uint32_t QEP_maxvalue = 0xFFFFFFFFU; //4294967295U -1 32bit signed int
+    raw = EQep2Regs.QPOSCNT;
+    if (raw >= QEP_maxvalue/2) raw -= QEP_maxvalue; // I don't think this is needed and never true
+    // 100 slits in the encoder disk so 100 square waves per one revolution of the
+    // DC motor's back shaft. Then Quadrature Decoder mode multiplies this by 4 so 400 counts per one rev
+    // of the DC motor's back shaft. Then the gear motor's gear ratio is 30:1.
+    return (raw*(2*3.14159265/(400.0*30)));//TNMZ return radians of wheel. 400 counts in one revolution, 2 pi radians in 1 revolution, 30:1 gear ratio.
+}
+
+
+void setEPWM2A(float controleffort){
+
+
+    if(controleffort > 10){ //lab2: cap from -10 to positive 10
+        controleffort = 10;
+    }
+    else if(controleffort < -10){//lab2: cap from -10 to positive 10
+        controleffort = -10;
+    }
+
+    EPwm2Regs.CMPA.bit.CMPA = ((controleffort + 10.0) / 20.0) * EPwm2Regs.TBPRD; //Lab2: shift control effort to positive then scale it to 0-2500
+
+}
+void setEPWM2B(float controleffort){
+    if(controleffort > 10){ //lab2: cap from -10 to positive 10
+        controleffort = 10;
+    }
+    else if(controleffort < -10){//lab2: cap from -10 to positive 10
+        controleffort = -10;
+    }
+    EPwm2Regs.CMPB.bit.CMPB = ((controleffort + 10.0) / 20.0) * EPwm2Regs.TBPRD; //Lab2: shift control effort to positive then scale it to 0-2500
+}
