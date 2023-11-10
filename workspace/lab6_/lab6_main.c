@@ -52,10 +52,10 @@ uint16_t LEDdisplaynum = 0;
 float ADC1v = 0; //MZTN Lab5:: Define global vars to hold ADC1, 2 voltage
 float ADC2v = 0;
 
-int16_t ADC1SPI = 0;
+int16_t ADC1SPI = 0; //TNMZ Lab 6 define ADC SPI
 int16_t ADC2SPI = 0;
 
-int16_t RawGyroX = 0;
+int16_t RawGyroX = 0; //TNMZ define gyro, temp, and accel
 int16_t RawGyroY = 0;
 int16_t RawGyroZ = 0;
 
@@ -76,19 +76,19 @@ float AccelX = 0;
 float AccelY = 0;
 float AccelZ = 0;
 
-float wheelLeft = 0;
+float wheelLeft = 0; //TNMZ Lab 6 define left and right wheel positions in radians traveled
 float wheelRight = 0;
 
-float radPerFootRight = 5.1;
+float radPerFootRight = 5.1; //TNMZ Lab conversions from encoder to feet for right and left wheel
 float radPerFootLeft = 5.1;
 
-float uLeft = 5;
+float uLeft = 5; //TNMZ Lab 6 initial control effort for PI Loop
 float uRight = 5;
 
-float lastWheelLeft = 0;
+float lastWheelLeft = 0; //TNMZ Lab 6: previous values
 float lastWheelRight = 0;
 
-float leftVel = 0;
+float leftVel = 0; //TNMZ Lab 6:velocity of wheels, right and left
 float rightVel = 0;
 
 //TNMZ Define PID consts
@@ -96,8 +96,10 @@ float rightVel = 0;
 float kp = 3;
 float ki = 25;
 
+//TNMZ global vars for PID loop
 
 float Vref = 0;
+
 
 float iL = 0;
 float iR = 0;
@@ -120,9 +122,11 @@ float printLV5 = 0;
 float printLV6 = 0;
 float printLV7 = 0;
 float printLV8 = 0;
-float x = 0;
-float y = 0;
-float bearing = 0;
+float x = 0; //TNMZ global X coordinate
+float y = 0; //TNMZ global Y coordinate
+float xdotprev = 0; //TNMZ lab 6: previous x and y velocity variables
+float ydotprev = 0;
+float bearing = 0; //TNMZ global bearing coordinate
 extern uint16_t NewLVData;
 extern float fromLVvalues[LVNUM_TOFROM_FLOATS];
 extern LVSendFloats_t DataToLabView;
@@ -661,9 +665,9 @@ void main(void)
                           ADC1v, ADC2v);*/
 
             //serial_printf(&SerialA,"Gyro X: %.2f  Y: %.2f  Z: %.2f      Accel X: %.2f  Y: %.2f  Z: %.2f \r\n",GyroX, GyroY, GyroZ, AccelX, AccelY, AccelZ);
-            serial_printf(&SerialA,"wheelLeft: %.2f  wheelRight: %.2f \r\n",wheelLeft, wheelRight);
-            serial_printf(&SerialA,"wheelLeftTravel: %.2f  wheelRightTravel: %.2f \r\n",wheelLeft / radPerFootLeft, wheelRight / radPerFootRight);
-            serial_printf(&SerialA,"leftVel: %.2f  rightVel: %.2f \r\n", leftVel, rightVel);
+            serial_printf(&SerialA,"wheelLeft: %.2f  wheelRight: %.2f \r\n",wheelLeft, wheelRight); //TNMZ lab 6: print left and right wheel travels in radians
+            serial_printf(&SerialA,"wheelLeftTravel: %.2f  wheelRightTravel: %.2f \r\n",wheelLeft / radPerFootLeft, wheelRight / radPerFootRight); //TNMZ lab 6: travel in feet
+            serial_printf(&SerialA,"leftVel: %.2f  rightVel: %.2f \r\n", leftVel, rightVel);//TNMZ lab 6: print left and right wheel velocity in feet per second
             UARTPrint = 0;
         }
     }
@@ -772,6 +776,8 @@ __interrupt void cpu_timer0_isr(void)
 }
 
 
+float Rwh = 0.1946 * 1.012; //MZTN radius of wheel
+float Wr = 0.56759 * 1.04478853942; // MZTN width between wheels
 // cpu_timer1_isr - CPU Timer1 ISR
 __interrupt void cpu_timer1_isr(void)
 {
@@ -781,27 +787,27 @@ __interrupt void cpu_timer1_isr(void)
     wheelRight = readEncRight();
 
 
-    leftVel = ((wheelLeft - lastWheelLeft)/.004)/radPerFootRight; //TNMZ read velocities from encoder previous counts over 4ms
+    leftVel = ((wheelLeft - lastWheelLeft)/.004)/radPerFootLeft; //TNMZ numerical derivative of wheel position to find wheel velocity, converted into feet
     rightVel = ((wheelRight - lastWheelRight)/.004)/radPerFootRight;
 
     lastWheelLeft = wheelLeft; //store previous encoder value //TNMZ
     lastWheelRight = wheelRight;
 
-    eTurn = turn + (leftVel - rightVel);
+    eTurn = turn + (leftVel - rightVel); //TNMZ lab 6:
 
-    eL =  Vref - leftVel - kpTurn*eTurn;
+    eL =  Vref - leftVel - kpTurn*eTurn; //TNMZ lab 6: error in wheel velocity offset by turning velocity
     eR = Vref - rightVel + kpTurn*eTurn;
 
 
 
 
-    iL = iLprev + 0.004 * (eL + eLPrev)/2;
+    iL = iLprev + 0.004 * (eL + eLPrev)/2;//TNMZ lab 6: numerical integration of left and right wheels speed error
     iR = iRprev + 0.004 * (eR + eRPrev)/2;
 
-    uLeft = kp*eL + ki*iL;
+    uLeft = kp*eL + ki*iL;//TNMZ lab 6: output effort to left and right wheels from PI
     uRight = kp*eR + ki*iR;
 
-    if (fabs(uLeft) >=10){
+    if (fabs(uLeft) >=10){//TNMZ lab 6: eliminate integral wind-up by capping integral accumulation at saturation
       iL = iLprev;
     }
     if (fabs(uRight) >=10){
@@ -811,10 +817,10 @@ __interrupt void cpu_timer1_isr(void)
     setEPWM2A(uRight); ////TNMZ set epwm to uLeft and uRight. 2A is right
     setEPWM2B(-1*uLeft);
 
-    eLPrev = eL;
+    eLPrev = eL; //TNMZ lab 6: set previous values
     eRPrev = eR;
 
-    iLprev = iL;
+    iLprev = iL; //TNMZ lab 6: set previous values
     iRprev = iR;
 
     if (NewLVData == 1) {
@@ -828,6 +834,30 @@ __interrupt void cpu_timer1_isr(void)
      printLV7 = fromLVvalues[6];
      printLV8 = fromLVvalues[7];
     }
+
+    //TMNZ: Odometry calculations
+
+    float thetaR = wheelRight; //TNMZ lab 6:wheel angle in rad
+    float thetaL = wheelLeft;
+    float thetaAvg = 0.5*(thetaR + thetaL); //TNMZ lab 6: average wheel angle
+
+    float bearing = (Rwh/Wr) * ( thetaR - thetaL ); //TMNZ: Calculate the bearing by finding the difference in right/left counts, multiplying by wheel radius to find the linear distance travelled, and divide by track radius to find the angle from distance along the circumference
+
+    float thetaLdot = leftVel * radPerFootRight;//TNMZ lab 6: angular velocity in radians. leftvel is in feet traveled, undoing the calculation
+    float thetaRdot = rightVel * radPerFootRight;
+
+    float bearingdot = 0.5 * (thetaRdot + thetaLdot); //TNMZ lab 6: bearing velocity
+
+
+
+    float xposdot = Rwh * bearingdot * cos(bearing);//TNMZ lab 6: x velocity calculated from angular velocity
+    float yposdot = Rwh * bearingdot * sin(bearing);//TNMZ lab 6: y velocity calculated from angular velocity
+
+    x += (0.004 * ((xposdot + xdotprev)/2)); //TNMZ lab 6: x position by numerically integrating the x velocity
+    y += (0.004 * ((yposdot + ydotprev)/2)); //TNMZ lab 6: y position by numerically integrating the y velocity
+
+
+
     if((CpuTimer1.InterruptCount % 62) == 0) { // change to the counter variable of you selected 4ms. timer
      DataToLabView.floatData[0] = x;
      DataToLabView.floatData[1] = y;
@@ -848,6 +878,11 @@ __interrupt void cpu_timer1_isr(void)
      }
      serial_sendSCID(&SerialD, LVsenddata, 4*LVNUM_TOFROM_FLOATS + 2);
     }
+
+    xdotprev = xposdot;  //TNMZ lab 6: set perivous values
+    ydotprev = yposdot;
+
+
 
 }
 
@@ -982,7 +1017,7 @@ float readEncRight(void) {
     return (raw*(2*3.14159265/(400.0*30)));//TNMZ return radians of wheel. 400 counts in one revolution, 2 pi radians in 1 revolution, 30:1 gear ratio.
 }
 
-
+//TMNZ: Copied set EPWM functions from lab 2
 void setEPWM2A(float controleffort){
 
 
