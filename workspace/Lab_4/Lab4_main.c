@@ -105,93 +105,93 @@ void main(void)
     InitSysCtrl();
 
     InitGpio();
-	
-	// Blue LED on LaunchPad
+
+    // Blue LED on LaunchPad
     GPIO_SetupPinMux(31, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(31, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPASET.bit.GPIO31 = 1;
 
-	// Red LED on LaunchPad
+    // Red LED on LaunchPad
     GPIO_SetupPinMux(34, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(34, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPBSET.bit.GPIO34 = 1;
 
-	// LED1 and PWM Pin
+    // LED1 and PWM Pin
     GPIO_SetupPinMux(22, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(22, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPACLEAR.bit.GPIO22 = 1;
-	
-	// LED2
+
+    // LED2
     GPIO_SetupPinMux(94, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(94, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPCCLEAR.bit.GPIO94 = 1;
 
-	// LED3
+    // LED3
     GPIO_SetupPinMux(95, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(95, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPCCLEAR.bit.GPIO95 = 1;
 
-	// LED4
+    // LED4
     GPIO_SetupPinMux(97, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(97, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPDCLEAR.bit.GPIO97 = 1;
 
-	// LED5
+    // LED5
     GPIO_SetupPinMux(111, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(111, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPDCLEAR.bit.GPIO111 = 1;
 
-	// LED6
+    // LED6
     GPIO_SetupPinMux(130, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(130, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPECLEAR.bit.GPIO130 = 1;
 
-	// LED7	
+    // LED7
     GPIO_SetupPinMux(131, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(131, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPECLEAR.bit.GPIO131 = 1;
 
-	// LED8
+    // LED8
     GPIO_SetupPinMux(25, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(25, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPACLEAR.bit.GPIO25 = 1;
 
-	// LED9
+    // LED9
     GPIO_SetupPinMux(26, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(26, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPACLEAR.bit.GPIO26 = 1;
 
-	// LED10
+    // LED10
     GPIO_SetupPinMux(27, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(27, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPACLEAR.bit.GPIO27 = 1;
 
-	// LED11	
+    // LED11
     GPIO_SetupPinMux(60, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(60, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPBCLEAR.bit.GPIO60 = 1;
 
-	// LED12	
+    // LED12
     GPIO_SetupPinMux(61, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(61, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPBCLEAR.bit.GPIO61 = 1;
 
-	// LED13
+    // LED13
     GPIO_SetupPinMux(157, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(157, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPECLEAR.bit.GPIO157 = 1;
 
-	// LED14
+    // LED14
     GPIO_SetupPinMux(158, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(158, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPECLEAR.bit.GPIO158 = 1;
-	
-	// LED15
+
+    // LED15
     GPIO_SetupPinMux(159, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(159, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPECLEAR.bit.GPIO159 = 1;
 
-	// LED16
+    // LED16
     GPIO_SetupPinMux(160, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(160, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPFCLEAR.bit.GPIO160 = 1;
@@ -206,7 +206,7 @@ void main(void)
     GPIO_SetupPinOptions(1, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPASET.bit.GPIO1 = 1;
 
-	//SPIRAM  CS  Chip Select
+    //SPIRAM  CS  Chip Select
     GPIO_SetupPinMux(19, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(19, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPASET.bit.GPIO19 = 1;
@@ -225,17 +225,17 @@ void main(void)
     GPIO_SetupPinMux(9, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(9, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPASET.bit.GPIO9 = 1;
-	
+
     //MPU9250  CS  Chip Select
     GPIO_SetupPinMux(66, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(66, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPCSET.bit.GPIO66 = 1;
-	
-	//WIZNET  CS  Chip Select
+
+    //WIZNET  CS  Chip Select
     GPIO_SetupPinMux(125, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(125, GPIO_OUTPUT, GPIO_PUSHPULL);
     GpioDataRegs.GPDSET.bit.GPIO125 = 1;
-	
+
     //PushButton 1
     GPIO_SetupPinMux(4, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(4, GPIO_INPUT, GPIO_PULLUP);
@@ -251,8 +251,8 @@ void main(void)
     //PushButton 4
     GPIO_SetupPinMux(7, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(7, GPIO_INPUT, GPIO_PULLUP);
-	
-	//Joy Stick Pushbutton
+
+    //Joy Stick Pushbutton
     GPIO_SetupPinMux(8, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(8, GPIO_INPUT, GPIO_PULLUP);
 
@@ -321,100 +321,100 @@ void main(void)
     CpuTimer1Regs.TCR.all = 0x4000;
     CpuTimer2Regs.TCR.all = 0x4000;
 
-	init_serialSCIA(&SerialA,115200);
+    init_serialSCIA(&SerialA,115200);
 
-	//Add in EPWM5 Timer Lab 4, initialized everything from reference according to comments below
-	EALLOW;
-	EPwm5Regs.ETSEL.bit.SOCAEN = 0; // Disable SOC on A group
-	EPwm5Regs.TBCTL.bit.CTRMODE = 3; // freeze counter
-	EPwm5Regs.ETSEL.bit.SOCASEL = 2; // Select Event when counter equal to PRD
-	EPwm5Regs.ETPS.bit.SOCAPRD = 1; // Generate pulse on 1st event (“pulse” is the same as “trigger”)
-	EPwm5Regs.TBCTR = 0x0; // Clear counter
-	EPwm5Regs.TBPHS.bit.TBPHS = 0x0000; // Phase is 0
-	EPwm5Regs.TBCTL.bit.PHSEN = 0; // Disable phase loading
-	EPwm5Regs.TBCTL.bit.CLKDIV = 0; // divide by 1 50Mhz Clock
-	EPwm5Regs.TBPRD = 50000/10; // Set Period to 1ms sample. Input clock is 50MHz.
-	// Notice here that we are not setting CMPA or CMPB because we are not using the PWM signal
-	EPwm5Regs.ETSEL.bit.SOCAEN = 1; //enable SOCA
-	EPwm5Regs.TBCTL.bit.CTRMODE = 0; //unfreeze, and enter up count mode
-	EDIS;
+    //Add in EPWM5 Timer Lab 4, initialized everything from reference according to comments below
+    EALLOW;
+    EPwm5Regs.ETSEL.bit.SOCAEN = 0; // Disable SOC on A group
+    EPwm5Regs.TBCTL.bit.CTRMODE = 3; // freeze counter
+    EPwm5Regs.ETSEL.bit.SOCASEL = 2; // Select Event when counter equal to PRD
+    EPwm5Regs.ETPS.bit.SOCAPRD = 1; // Generate pulse on 1st event (“pulse” is the same as “trigger”)
+    EPwm5Regs.TBCTR = 0x0; // Clear counter
+    EPwm5Regs.TBPHS.bit.TBPHS = 0x0000; // Phase is 0
+    EPwm5Regs.TBCTL.bit.PHSEN = 0; // Disable phase loading
+    EPwm5Regs.TBCTL.bit.CLKDIV = 0; // divide by 1 50Mhz Clock
+    EPwm5Regs.TBPRD = 50000/10; // Set Period to 1ms sample. Input clock is 50MHz.
+    // Notice here that we are not setting CMPA or CMPB because we are not using the PWM signal
+    EPwm5Regs.ETSEL.bit.SOCAEN = 1; //enable SOCA
+    EPwm5Regs.TBCTL.bit.CTRMODE = 0; //unfreeze, and enter up count mode
+    EDIS;
 
 
-	//Add in ADCD with SOCs Lab 4
-	EALLOW;
-	//write configurations for all ADCs ADCA, ADCB, ADCC, ADCD
-	AdcaRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
-	AdcbRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
-	AdccRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
-	AdcdRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
-	AdcSetMode(ADC_ADCA, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
-	AdcSetMode(ADC_ADCB, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
-	AdcSetMode(ADC_ADCC, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
-	AdcSetMode(ADC_ADCD, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
-	//Set pulse positions to late
-	AdcaRegs.ADCCTL1.bit.INTPULSEPOS = 1;
-	AdcbRegs.ADCCTL1.bit.INTPULSEPOS = 1;
-	AdccRegs.ADCCTL1.bit.INTPULSEPOS = 1;
-	AdcdRegs.ADCCTL1.bit.INTPULSEPOS = 1;
-	//power up the ADCs
-	AdcaRegs.ADCCTL1.bit.ADCPWDNZ = 1;
-	AdcbRegs.ADCCTL1.bit.ADCPWDNZ = 1;
-	AdccRegs.ADCCTL1.bit.ADCPWDNZ = 1;
-	AdcdRegs.ADCCTL1.bit.ADCPWDNZ = 1;
-	//delay for 1ms to allow ADC time to power up
-	DELAY_US(1000);
+    //Add in ADCD with SOCs Lab 4
+    EALLOW;
+    //write configurations for all ADCs ADCA, ADCB, ADCC, ADCD
+    AdcaRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
+    AdcbRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
+    AdccRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
+    AdcdRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
+    AdcSetMode(ADC_ADCA, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
+    AdcSetMode(ADC_ADCB, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
+    AdcSetMode(ADC_ADCC, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
+    AdcSetMode(ADC_ADCD, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
+    //Set pulse positions to late
+    AdcaRegs.ADCCTL1.bit.INTPULSEPOS = 1;
+    AdcbRegs.ADCCTL1.bit.INTPULSEPOS = 1;
+    AdccRegs.ADCCTL1.bit.INTPULSEPOS = 1;
+    AdcdRegs.ADCCTL1.bit.INTPULSEPOS = 1;
+    //power up the ADCs
+    AdcaRegs.ADCCTL1.bit.ADCPWDNZ = 1;
+    AdcbRegs.ADCCTL1.bit.ADCPWDNZ = 1;
+    AdccRegs.ADCCTL1.bit.ADCPWDNZ = 1;
+    AdcdRegs.ADCCTL1.bit.ADCPWDNZ = 1;
+    //delay for 1ms to allow ADC time to power up
+    DELAY_US(1000);
 
-	//Select the channels to convert and end of conversion flag
-	//Many statements commented out, To be used when using ADCA or ADCB
-	//ADCA
+    //Select the channels to convert and end of conversion flag
+    //Many statements commented out, To be used when using ADCA or ADCB
+    //ADCA
     AdcaRegs.ADCSOC0CTL.bit.CHSEL = 2; // set SOC0 to convert pin ADCIN2
-	AdcaRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	AdcaRegs.ADCSOC0CTL.bit.TRIGSEL = 0xD;// EPWM5 ADCSOCA or another trigger you choose will trigger SOC0
-	AdcaRegs.ADCSOC1CTL.bit.CHSEL = 3; //SOC1 will convert Channel ADCIN3
-	AdcaRegs.ADCSOC1CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	AdcaRegs.ADCSOC1CTL.bit.TRIGSEL = 0xD;// EPWM5 ADCSOCA or another trigger you choose will trigger SOC1
-	AdcaRegs.ADCINTSEL1N2.bit.INT1SEL = 0x1; //set to last SOC that is converted and it will set INT1 flag ADCA1
-	AdcaRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
-	AdcaRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
+    AdcaRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
+    AdcaRegs.ADCSOC0CTL.bit.TRIGSEL = 0xD;// EPWM5 ADCSOCA or another trigger you choose will trigger SOC0
+    AdcaRegs.ADCSOC1CTL.bit.CHSEL = 3; //SOC1 will convert Channel ADCIN3
+    AdcaRegs.ADCSOC1CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
+    AdcaRegs.ADCSOC1CTL.bit.TRIGSEL = 0xD;// EPWM5 ADCSOCA or another trigger you choose will trigger SOC1
+    AdcaRegs.ADCINTSEL1N2.bit.INT1SEL = 0x1; //set to last SOC that is converted and it will set INT1 flag ADCA1
+    AdcaRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
+    AdcaRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
 //
-	//ADCB
-	AdcbRegs.ADCSOC0CTL.bit.CHSEL = 4; //SOC0 will convert Channel you choose Does not have to be B0
-	AdcbRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	AdcbRegs.ADCSOC0CTL.bit.TRIGSEL = 0xD; // EPWM5 ADCSOCA or another trigger you choose will trigger SOC0
-	AdcbRegs.ADCINTSEL1N2.bit.INT1SEL = 0x0; //set to last SOC that is converted and it will set INT1 flag ADCB1
-	AdcbRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
-	AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
+    //ADCB
+    AdcbRegs.ADCSOC0CTL.bit.CHSEL = 4; //SOC0 will convert Channel you choose Does not have to be B0
+    AdcbRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
+    AdcbRegs.ADCSOC0CTL.bit.TRIGSEL = 0xD; // EPWM5 ADCSOCA or another trigger you choose will trigger SOC0
+    AdcbRegs.ADCINTSEL1N2.bit.INT1SEL = 0x0; //set to last SOC that is converted and it will set INT1 flag ADCB1
+    AdcbRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
+    AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
 
-	//ADCD
-	AdcdRegs.ADCSOC0CTL.bit.CHSEL = 0; // set SOC0 to convert pin D0
-	AdcdRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	AdcdRegs.ADCSOC0CTL.bit.TRIGSEL = 0xD; // EPWM5 ADCSOCA will trigger SOC0
-	AdcdRegs.ADCSOC1CTL.bit.CHSEL = 1; //set SOC1 to convert pin D1
-	AdcdRegs.ADCSOC1CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	AdcdRegs.ADCSOC1CTL.bit.TRIGSEL = 0xD; // EPWM5 ADCSOCA will trigger SOC1
-	//AdcdRegs.ADCSOC2CTL.bit.CHSEL = ???; //set SOC2 to convert pin D2
-	//AdcdRegs.ADCSOC2CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	//AdcdRegs.ADCSOC2CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA will trigger SOC2
-	//AdcdRegs.ADCSOC3CTL.bit.CHSEL = ???; //set SOC3 to convert pin D3
-	//AdcdRegs.ADCSOC3CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	//AdcdRegs.ADCSOC3CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA will trigger SOC3
-	AdcdRegs.ADCINTSEL1N2.bit.INT1SEL = 0x1; //set to SOC1, the last converted, and it will set INT1 flag ADCD1
-	AdcdRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
-	AdcdRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
+    //ADCD
+    AdcdRegs.ADCSOC0CTL.bit.CHSEL = 0; // set SOC0 to convert pin D0
+    AdcdRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
+    AdcdRegs.ADCSOC0CTL.bit.TRIGSEL = 0xD; // EPWM5 ADCSOCA will trigger SOC0
+    AdcdRegs.ADCSOC1CTL.bit.CHSEL = 1; //set SOC1 to convert pin D1
+    AdcdRegs.ADCSOC1CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
+    AdcdRegs.ADCSOC1CTL.bit.TRIGSEL = 0xD; // EPWM5 ADCSOCA will trigger SOC1
+    //AdcdRegs.ADCSOC2CTL.bit.CHSEL = ???; //set SOC2 to convert pin D2
+    //AdcdRegs.ADCSOC2CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
+    //AdcdRegs.ADCSOC2CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA will trigger SOC2
+    //AdcdRegs.ADCSOC3CTL.bit.CHSEL = ???; //set SOC3 to convert pin D3
+    //AdcdRegs.ADCSOC3CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
+    //AdcdRegs.ADCSOC3CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA will trigger SOC3
+    AdcdRegs.ADCINTSEL1N2.bit.INT1SEL = 0x1; //set to SOC1, the last converted, and it will set INT1 flag ADCD1
+    AdcdRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
+    AdcdRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
 
-	EDIS;
+    EDIS;
 
 
-	//Add in DACA and DACB Lab 4
-	// Enable DACA and DACB outputs
-	EALLOW;
-	DacaRegs.DACOUTEN.bit.DACOUTEN = 1; //enable dacA output-->uses ADCINA0
-	DacaRegs.DACCTL.bit.LOADMODE = 0; //load on next sysclk
-	DacaRegs.DACCTL.bit.DACREFSEL = 1; //use ADC VREF as reference voltage
-	DacbRegs.DACOUTEN.bit.DACOUTEN = 1; //enable dacB output-->uses ADCINA1
-	DacbRegs.DACCTL.bit.LOADMODE = 0; //load on next sysclk
-	DacbRegs.DACCTL.bit.DACREFSEL = 1; //use ADC VREF as reference voltage
-	EDIS;
+    //Add in DACA and DACB Lab 4
+    // Enable DACA and DACB outputs
+    EALLOW;
+    DacaRegs.DACOUTEN.bit.DACOUTEN = 1; //enable dacA output-->uses ADCINA0
+    DacaRegs.DACCTL.bit.LOADMODE = 0; //load on next sysclk
+    DacaRegs.DACCTL.bit.DACREFSEL = 1; //use ADC VREF as reference voltage
+    DacbRegs.DACOUTEN.bit.DACOUTEN = 1; //enable dacB output-->uses ADCINA1
+    DacbRegs.DACCTL.bit.LOADMODE = 0; //load on next sysclk
+    DacbRegs.DACCTL.bit.DACREFSEL = 1; //use ADC VREF as reference voltage
+    EDIS;
 
 
     // Enable CPU int1 which is connected to CPU-Timer 0, CPU int13
@@ -439,23 +439,23 @@ void main(void)
     //lab4: enable pie interrupt 1.2 for ADCB1 Mic
     PieCtrlRegs.PIEIER1.bit.INTx2 = 1;
 
-	// Enable SWI in the PIE: Group 12 interrupt 9
+    // Enable SWI in the PIE: Group 12 interrupt 9
     PieCtrlRegs.PIEIER12.bit.INTx9 = 1;
-	
-	init_serialSCIB(&SerialB,115200);
-	init_serialSCIC(&SerialC,115200);
-	init_serialSCID(&SerialD,115200);
+
+    init_serialSCIB(&SerialB,115200);
+    init_serialSCIC(&SerialC,115200);
+    init_serialSCID(&SerialD,115200);
     // Enable global Interrupts and higher priority real-time debug events
     EINT;  // Enable Global interrupt INTM
     ERTM;  // Enable Global realtime interrupt DBGM
 
-    
+
     // IDLE loop. Just sit and loop forever (optional):
     while(1)
     {
         if (UARTPrint == 1 ) {
-			serial_printf(&SerialA,"Pot Axis 1: %.2f  \r\n ", yk); //Lab 4: Print out axis 1 on joystick
-			serial_printf(&SerialA,"Pot Axis 2: %.2f  \r\n\n ", y1k);//Lab 4: Print out axis 2 on joystick
+            serial_printf(&SerialA,"Pot Axis 1: %.2f  \r\n ", yk); //Lab 4: Print out axis 1 on joystick
+            serial_printf(&SerialA,"Pot Axis 2: %.2f  \r\n\n ", y1k);//Lab 4: Print out axis 2 on joystick
             UARTPrint = 0;
         }
     }
@@ -636,9 +636,9 @@ __interrupt void ADCA_ISR(void){ //Lab 4: Joystick reading/filtering
     adca1result = AdcaResultRegs.ADCRESULT1;
 
     // Here covert ADCIND2 to volts
-    adca0resultv = adca0result / 4096.0 * 3.0;
+    adca0resultv = adca0result; // 4096.0 * 3.0;
     // Here covert ADCIND3 to volts
-    adca1resultv = adca1result / 4096.0 * 3.0;
+    adca1resultv = adca1result; // 4096.0 * 3.0;
 
     //yk = b[0]*adcd0resultv + b[1]*xk_1 + b[2]*xk_2 + b[3]*xk_3 + b[4]*xk_4;  //lab 4: weighted average
     x_array[0] = adca0resultv; //lab 4: set the first element (xk_0) to the newest reading
@@ -762,18 +762,18 @@ __interrupt void ADCB_ISR(void){
 __interrupt void SWI_isr(void) {
 
     // These three lines of code allow SWI_isr, to be interrupted by other interrupt functions
-	// making it lower priority than all other Hardware interrupts.  
-	PieCtrlRegs.PIEACK.all = PIEACK_GROUP12;
+    // making it lower priority than all other Hardware interrupts.
+    PieCtrlRegs.PIEACK.all = PIEACK_GROUP12;
     asm("       NOP");                    // Wait one cycle
     EINT;                                 // Clear INTM to enable interrupts
-	
-	
-	
+
+
+
     // Insert SWI ISR Code here.......
-	
-	
+
+
     numSWIcalls++;
-    
+
     DINT;
 
 }
@@ -798,8 +798,8 @@ __interrupt void cpu_timer0_isr(void)
     }
 
     if ((numTimer0calls%50) == 0) {
-		// Blink LaunchPad Red LED
-		GpioDataRegs.GPBTOGGLE.bit.GPIO34 = 1;
+        // Blink LaunchPad Red LED
+        GpioDataRegs.GPBTOGGLE.bit.GPIO34 = 1;
     }
 
 
@@ -810,20 +810,21 @@ __interrupt void cpu_timer0_isr(void)
 // cpu_timer1_isr - CPU Timer1 ISR
 __interrupt void cpu_timer1_isr(void)
 {
-		
+
     CpuTimer1.InterruptCount++;
 }
 
 // cpu_timer2_isr CPU Timer2 ISR
 __interrupt void cpu_timer2_isr(void)
 {
-	// Blink LaunchPad Blue LED
+    // Blink LaunchPad Blue LED
     GpioDataRegs.GPATOGGLE.bit.GPIO31 = 1;
 
     CpuTimer2.InterruptCount++;
-	
-	if ((CpuTimer2.InterruptCount % 10) == 0) {
-		//UARTPrint = 1;
-	}
+
+    if ((CpuTimer2.InterruptCount % 10) == 0) {
+        UARTPrint = 1;
+    }
 }
+
 
