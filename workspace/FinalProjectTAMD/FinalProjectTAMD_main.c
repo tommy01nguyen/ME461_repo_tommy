@@ -191,6 +191,10 @@ int32_t timecount = 0;
 int16_t calibration_state = 0;
 int32_t calibration_count = 0;
 
+float linearPos = 0;
+float speedRef = 0;
+float linear_move_command_vel = 0;
+
 void main(void)
 {
     // PLL, WatchDog, enable Peripheral Clocks
@@ -502,9 +506,18 @@ void main(void)
     ERTM;
     // Enable Global realtime interrupt DBGM
 
+
+    while (GpioDataRegs.GPADAT.bit.GPIO4){ //WAIT for stuff to happen
+
+    }
+
     // IDLE loop. Just sit and loop forever (optional):
+    float initial_position = linearPos;
     while (1)
     {
+        move_linear( initial_position + 2 - linearPos );
+        speedRef = linear_move_command_vel;
+
         if (UARTPrint == 1)
         {
 //            serial_printf(&SerialA, "accel_x:%.3f accel_y: %.3f accel_z:%.3f gyro_x:%.3f gyro_y:%.3f gyro_z:%.3f \r \n",
@@ -556,7 +569,7 @@ float PrevSumErrorDiff = 0;
 float PrevErrorDiff = 0;
 
 // Lab 7: AMP DBC TN MZ: declare turn PID values
-float turnKp = 3;
+float turnKp = 6;
 float turnKi = 20;
 float turnKd = 0.08;
 float VelWhlDiff = 0;
@@ -568,55 +581,60 @@ float prevTurnref = 0;
 float speedKp = 0.35;
 float speedKi = 1.5;
 
-float speedRef = 0;
 float IK_eSpeed = 0;
 float eSpeedPrev = 0;
 float eSpeed = 0;
 float ForwardBackwardCommand = 0;
 float PrevIK_eSpeed = 0;
 
+void labview_comms(){
+    if (NewLVData == 1)
+       {
+           NewLVData = 0;
+           speedRef = fromLVvalues[0]; // Lab 7: AMP DBC TN MZ: receiving speed value from labview
+           turnRate = fromLVvalues[1]; // Lab 7: AMP DBC TN MZ: receiving turn speed value from labview
+           printLV3 = fromLVvalues[2];
+           printLV4 = fromLVvalues[3];
+           printLV5 = fromLVvalues[4];
+           printLV6 = fromLVvalues[5];
+           printLV7 = fromLVvalues[6];
+           printLV8 = fromLVvalues[7];
+       }
+       if ((numSWIcalls % 62) == 0) // Lab 7: AMP DBC TN MZ: sending robot position and bearing to labview
+       { // change to the counter variable of you selected 4ms. timer
+           DataToLabView.floatData[0] = x;
+           DataToLabView.floatData[1] = y;
+           DataToLabView.floatData[2] = bearing;
+           DataToLabView.floatData[3] = 2.0 * ((float) numSWIcalls) * .001;
+           DataToLabView.floatData[4] = 3.0 * ((float) numSWIcalls) * .001;
+           DataToLabView.floatData[5] = (float) numSWIcalls;
+           DataToLabView.floatData[6] = (float) numSWIcalls * 4.0;
+           DataToLabView.floatData[7] = (float) numSWIcalls * 5.0;
+           LVsenddata[0] = '*'; // header for LVdata
+           LVsenddata[1] = '$';
+           for (int i = 0; i < LVNUM_TOFROM_FLOATS * 4; i++)
+           {
+               if (i % 2 == 0)
+               {
+                   LVsenddata[i + 2] = DataToLabView.rawData[i / 2] & 0xFF;
+               }
+               else
+               {
+                   LVsenddata[i + 2] = (DataToLabView.rawData[i / 2] >> 8) & 0xFF;
+               }
+           }
+           serial_sendSCID(&SerialD, LVsenddata, 4 * LVNUM_TOFROM_FLOATS + 2);
+       }
+
+}
+
+float ubal_prev = 0;
+float ubal_next = 0;
 // SWI_isr,  Using this interrupt as a Software started interrupt
 __interrupt void SWI_isr(void)
 {
     // Lab 7: AMP DBC TN MZ: Labview communication
-    if (NewLVData == 1)
-    {
-        NewLVData = 0;
-        speedRef = fromLVvalues[0]; // Lab 7: AMP DBC TN MZ: receiving speed value from labview
-        turnRate = fromLVvalues[1]; // Lab 7: AMP DBC TN MZ: receiving turn speed value from labview
-        printLV3 = fromLVvalues[2];
-        printLV4 = fromLVvalues[3];
-        printLV5 = fromLVvalues[4];
-        printLV6 = fromLVvalues[5];
-        printLV7 = fromLVvalues[6];
-        printLV8 = fromLVvalues[7];
-    }
-    if ((numSWIcalls % 62) == 0) // Lab 7: AMP DBC TN MZ: sending robot position and bearing to labview
-    { // change to the counter variable of you selected 4ms. timer
-        DataToLabView.floatData[0] = x;
-        DataToLabView.floatData[1] = y;
-        DataToLabView.floatData[2] = bearing;
-        DataToLabView.floatData[3] = 2.0 * ((float) numSWIcalls) * .001;
-        DataToLabView.floatData[4] = 3.0 * ((float) numSWIcalls) * .001;
-        DataToLabView.floatData[5] = (float) numSWIcalls;
-        DataToLabView.floatData[6] = (float) numSWIcalls * 4.0;
-        DataToLabView.floatData[7] = (float) numSWIcalls * 5.0;
-        LVsenddata[0] = '*'; // header for LVdata
-        LVsenddata[1] = '$';
-        for (int i = 0; i < LVNUM_TOFROM_FLOATS * 4; i++)
-        {
-            if (i % 2 == 0)
-            {
-                LVsenddata[i + 2] = DataToLabView.rawData[i / 2] & 0xFF;
-            }
-            else
-            {
-                LVsenddata[i + 2] = (DataToLabView.rawData[i / 2] >> 8) & 0xFF;
-            }
-        }
-        serial_sendSCID(&SerialD, LVsenddata, 4 * LVNUM_TOFROM_FLOATS + 2);
-    }
-
+    labview_comms();
     leftWheel = readEncLeft(); // Lab 7: AMP DBC TN MZ: get wheel radians per second
     rightWheel = readEncRight();
 
@@ -630,10 +648,10 @@ __interrupt void SWI_isr(void)
 
     // Insert SWI ISR Code here.......
 
-    vel_Left = 0.6 * vel_Left_prev + 100 * (LeftWheel - leftWheel_prev);// Lab 7: AMP DBC TN MZ:continous transfer function to estimate velocities and gyro with less noise
-    vel_Right = 0.6 * vel_Right_prev + 100 * (RightWheel - rightWheel_prev);
+    vel_Left = 0.6 * vel_Left_prev + 100.0 * (LeftWheel - leftWheel_prev);// Lab 7: AMP DBC TN MZ:continous transfer function to estimate velocities and gyro with less noise
+    vel_Right = 0.6 * vel_Right_prev + 100.0 * (RightWheel - rightWheel_prev);
 
-    gyrorate_dot = 0.6 * gyrorate_dot_prev + 100 * (gyro_value - gyrorate_prev);
+    gyrorate_dot = 0.6 * gyrorate_dot_prev + 100.0 * (gyro_value - gyrorate_prev);
 
     WhlDiff = leftWheel - rightWheel; // Lab 7: AMP DBC TN MZ:find wheel difference
 
@@ -684,9 +702,17 @@ __interrupt void SWI_isr(void)
     }
 
     //**
+    ubal_prev = ubal_next;
 
-    ubal = -K1 * tilt_value - K2 * gyro_value
-            - K3 * (vel_Left + vel_Right) / 2.0 - K4 * gyrorate_dot; // Lab 7: AMP DBC TN MZ: balancing effort
+    ubal_next = -K1 * 1.75 * tilt_value - K2 * 1.75 * gyro_value
+            - K3 * 1.8 * (vel_Left + vel_Right) / 2.0 - K4 * 1.8 * gyrorate_dot; // Lab 7: AMP DBC TN MZ: balancing effort
+
+    float alpha = (2*PI*1*.004)/(1+1*2*PI*.004);
+
+    ubal = (alpha)*ubal_next + (1-alpha)*ubal_prev;
+
+    //ubal *= 2;
+
 
     uRight = ubal / 2.0 - uTurn - ForwardBackwardCommand; // Lab 7: AMP DBC TN MZ: effort to each wheel
     uLeft = ubal / 2.0 + uTurn - ForwardBackwardCommand;
@@ -787,6 +813,8 @@ __interrupt void cpu_timer1_isr(void)
     leftDistance = leftWheel / 5.061; //feet traveled
     rightDistance = rightWheel / 5.061;
 
+    linearPos = (leftDistance + rightDistance)/2.0;
+
     //velocity in ft/sec
     leftVel = (leftDistance - prev_leftDistance) / 0.004;
     rightVel = (rightDistance - prev_rightDistance) / 0.004;
@@ -843,38 +871,43 @@ __interrupt void cpu_timer1_isr(void)
 
 __interrupt void cpu_timer2_isr(void)
 {
-    // Blink LaunchPad Blue LED
-    //    GpioDataRegs.GPATOGGLE.bit.GPIO31 = 1;
-
-
-    ///*
-    if(IR_1 < 0.75){ //turning right, into the wall, if too far
-        turnRate = -3;
-        speedRef = -4;
-    }
-    else if(IR_1 > (2.8)){ //turning left, away from wall if too close
-        turnRate = 3;
-        speedRef = -4;
-    }
-    else{
-        speedRef = -3;
-        turnRate = 0;
-    }
-    //*/
     /*
-    if(IR_1 < 1){ //turning right, into the wall, if too far
-        turnref += 90;
-        speedRef = 2;
+    speedRef = -2;
+    //DB implementing wall distance PI control for maze corridor movement
+    float Kp_wall = 1.5;
+    float dt = 0.002;
+    float Ki_wall = .03;
+    float wall_ref= 1;
+    float e_wall = 0;
+
+    if (IR_left  > 0.4 && IR_right > 0.4) { //if both sides see a wall
+        e_wall = IR_left - IR_right;
+        if (fabs(turnRate) < 3) {
+            i_wall += (e_wall + e_wall_1)*dt/2;
+        }
+        turnRate = Kp_wall*e_wall + Ki_wall*i_wall;
+    } else if (IR_left > 0.4) { //if only left side sees a wall
+        e_wall = IR_left - wall_ref;
+        if (fabs(turnRate) < 3) {
+            i_wall += (e_wall + e_wall_1)*dt/2;
+        }
+        turnRate = Kp_wall*e_wall + Ki_wall*i_wall;
+
+    } else if (IR_right > 0.4) { // if only right side sees a wall
+        e_wall = wall_ref - IR_right;
+        if (fabs(turnRate) < 3) {
+            i_wall += (e_wall + e_wall_1)*dt/2;
+        }
+        turnRate = Kp_wall*e_wall + Ki_wall*i_wall;
+    } else { //nobody sees a wall
+
     }
-    else if(IR_1 > (2.8)){ //turning left, away from wall if too close
+
+    if (turnRate > 3)
+        turnRate = 3;
+    else if (turnRate < -3)
         turnRate = -3;
-        speedRef = 2;
-    }
-    else{
-        speedRef = 3;
-        turnRate = 0;
-    }
-    */
+    e_wall_1 = e_wall;
 
 
     CpuTimer2.InterruptCount++;
@@ -884,7 +917,7 @@ __interrupt void cpu_timer2_isr(void)
 
 
 
-    }
+    }*/
 }
 int16_t spibCount = 0;
 
@@ -975,6 +1008,8 @@ __interrupt void SPIB_isr(void)
         gyro_array[SpibNumCalls] = tiltrate;
         LeftWheelArray[SpibNumCalls] = readEncLeft();
         RightWheelArray[SpibNumCalls] = readEncRight();
+
+
         if (SpibNumCalls >= 3)
         { // should never be greater than 3
             tilt_value = (tilt_array[0] + tilt_array[1] + tilt_array[2]
@@ -988,6 +1023,18 @@ __interrupt void SPIB_isr(void)
             SpibNumCalls = -1;
             PieCtrlRegs.PIEIFR12.bit.INTx9 = 1; // Manually cause the interrupt for the SWI
         }
+
+
+        /*
+        if (SpibNumCalls >= 1)
+        { // should never be greater than 3
+            tilt_value = (tilt_array[0] + tilt_array[1]) / 2.0;
+            gyro_value = (gyro_array[0] + gyro_array[1]) / 2.0;
+            LeftWheel = (LeftWheelArray[0] + LeftWheelArray[1]) / 2.0;
+            RightWheel = (RightWheelArray[0] + RightWheelArray[1]) / 2.0;
+            SpibNumCalls = -1;
+            PieCtrlRegs.PIEIFR12.bit.INTx9 = 1; // Manually cause the interrupt for the SWI
+        }*/
     }
     timecount++;
     if ((timecount % 200) == 0)
@@ -1355,6 +1402,28 @@ void calculateRobotPose(void)
     y_dotPrev = y_dot;
 
 }
+
+float linear_move_kp = 4;
+float linear_move_tolerance = .01;
+
+//units of error in ft
+int move_linear(float error){
+    linear_move_command_vel = linear_move_kp * error;
+
+   if(error < linear_move_tolerance){
+       return 1;
+   }
+   else{
+       return 0;
+   }
+
+}
+/*
+void move(float targetX, float targetY){
+    float posError = targetPos - ;
+
+
+}*/
 
 //xk is the current ADC reading, xk_1 is the ADC reading one millisecond ago, xk_2 two milliseconds ago, etc
 float xk = 0;
