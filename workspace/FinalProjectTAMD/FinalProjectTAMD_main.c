@@ -11,7 +11,7 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
-//#include "F28x_Project.h"
+#include "F28x_Project.h"
 #include "driverlib.h"
 #include "device.h"
 #include "F28379dSerial.h"
@@ -44,6 +44,14 @@ void setupSpib(void);
 
 void setEPWM2A(float controleffort);
 void setEPWM2B(float controleffort);
+
+void rotate_robot(float angle);
+void move_robot(float dist);
+int explore_junction(int last_turn);
+int rotate(float target, float current);
+int move_linear(float target, float current);
+
+
 
 //robot comm
 float printLV3 = 0;
@@ -85,8 +93,9 @@ int16_t ADCIND0_raw = 0; // 0-4095
 int16_t ADCIND1_raw = 0;
 float ADCIND0_volt = 0; //voltage
 
-float IR_2 = 0; //amp dbc global variables to print the left and right IR sensor Data
-float IR_1 = 0;
+float IR_right = 0; //amp dbc global variables to print the left and right IR sensor Data
+float IR_left = 0;
+float IR_front = 0;
 
 int16_t countUp = 1;
 
@@ -193,6 +202,7 @@ int32_t calibration_count = 0;
 
 float linearPos = 0;
 float speedRef = 0;
+uint16_t STATE_VAR = 0;
 
 void main(void)
 {
@@ -433,16 +443,21 @@ void main(void)
     AdcaRegs.ADCSOC0CTL.bit.CHSEL = 2; // set SOC0 to convert pin A2
     AdcaRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
     AdcaRegs.ADCSOC0CTL.bit.TRIGSEL = 13; //0Dh // EPWM5 ADCSOCA will trigger SOC0
+
     AdcaRegs.ADCSOC1CTL.bit.CHSEL = 3; //set SOC1 to convert pin A3
     AdcaRegs.ADCSOC1CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
     AdcaRegs.ADCSOC1CTL.bit.TRIGSEL = 13; // EPWM5 ADCSOCA will trigger SOC1
+
+    AdcaRegs.ADCSOC2CTL.bit.CHSEL = 1; //set SOC2 to convert pin A1 (Front IR Sensor)
+    AdcaRegs.ADCSOC2CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
+    AdcaRegs.ADCSOC2CTL.bit.TRIGSEL = 13; // EPWM5 ADCSOCA will trigger SOC2
     //AdcaRegs.ADCSOC2CTL.bit.CHSEL = ???; //set SOC2 to convert pin D2
     //AdcaRegs.ADCSOC2CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
     //AdcaRegs.ADCSOC2CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA will trigger SOC2
     //AdcaRegs.ADCSOC3CTL.bit.CHSEL = ???; //set SOC3 to convert pin D3
     //AdcaRegs.ADCSOC3CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
     //AdcaRegs.ADCSOC3CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA will trigger SOC3
-    AdcaRegs.ADCINTSEL1N2.bit.INT1SEL = 1; //set to SOC1, the last converted, and it will set INT1  flag ADCD1
+    AdcaRegs.ADCINTSEL1N2.bit.INT1SEL = 2; //set to SOC2, the last converted, and it will set INT1  flag ADCD1
     AdcaRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
     AdcaRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
     EDIS;
@@ -506,15 +521,28 @@ void main(void)
     // Enable Global realtime interrupt DBGM
 
 
-    while (GpioDataRegs.GPADAT.bit.GPIO4){ //WAIT for stuff to happen
+    while (GpioDataRegs.GPADAT.bit.GPIO4){ //WAIT for button press
 
     }
 
     // IDLE loop. Just sit and loop forever (optional):
-    float initial_position = linearPos;
+    STATE_VAR = 1;
+    //rotate_robot(90.0);
+
+    explore_junction(0);
+
+    STATE_VAR = 0;
+
+
+
     while (1)
     {
-        //move_linear( initial_position + 2 - linearPos );
+
+
+
+
+
+
 
         if (UARTPrint == 1)
         {
@@ -530,13 +558,116 @@ void main(void)
             //                          x, y);
 
             serial_printf(&SerialA,
-                          "IR_2_VOLTAGE:%f IR_1_VOLTAGE:%f ACCEL_Z:%f GYRO_X:%f\r\n",
-                          IR_2, IR_1, accel_z, gyro_x);
+                          "IR_2_VOLTAGE:%f IR_1_VOLTAGE:%f IR_front_VOLTAGE:%f ACCEL_Z:%f GYRO_X:%f\r\n",
+                          IR_right, IR_left,IR_front, accel_z, gyro_x);
 
             UARTPrint = 0;
         }
     }
 }
+
+
+struct junction {
+    int left; //0 = wall sensed, 1 = no wall (path down this direction)
+    int middle;
+    int right;
+};
+float no_wall_cutoff = .6; //cutoff for no wall, below this value is no wall
+
+struct junction sense_junction(){
+
+    struct junction outputJunction;
+    outputJunction.left = 0;
+    outputJunction.right = 0;
+    outputJunction.middle = 0;
+
+    if(IR_left < no_wall_cutoff){
+        outputJunction.left = 1;
+    }
+    if(IR_right < no_wall_cutoff){
+        outputJunction.right = 1;
+    }
+    if(IR_front < .9){
+        outputJunction.middle = 1;
+    }
+
+    return outputJunction;
+};
+
+
+
+int explore_junction(int last_turn){
+    struct junction currJunction = sense_junction();
+    while((!currJunction.left && !currJunction.right && currJunction.middle)){ //block progress until something other than only middle is seen
+        currJunction = sense_junction();
+    }
+
+    if(!currJunction.middle){ //if wall is seen on the front
+        //move_robot(1); do nothing
+    }
+    else{ //otherwise, move to the center of the tile
+        move_robot(1.2);
+    }
+
+    currJunction = sense_junction();
+
+    if(currJunction.left && currJunction.right && currJunction.middle){
+        return 1; //DONE
+    }
+
+    //traverse junction paths
+    if(currJunction.left){
+        rotate_robot(-90);
+        move_robot(1.8);
+        if(explore_junction(-1)){
+            return 1;
+        }
+    }
+    if(currJunction.middle){
+        move_robot(1.8);
+
+        if(explore_junction(0)){
+            return 1;
+        }
+    }
+    if(currJunction.right){
+        rotate_robot(90);
+        move_robot(1.8);
+        if(explore_junction(1)){
+            return 1;
+        }
+    }
+
+    rotate_robot(180);
+    move_robot(1.2);
+    currJunction = sense_junction();
+
+    while((!currJunction.left && !currJunction.right && currJunction.middle)){ //backtrack to last junction
+        currJunction = sense_junction();
+    }
+    move_robot(1.2);
+    rotate_robot(90*last_turn); //return robot to initial orientation at backtracked junction
+    return 0;
+}
+
+void rotate_robot(float angle){ //angle is in deg
+    //manage state
+    STATE_VAR = 2;
+    float initial_bearing = bearing;
+    while(rotate(-angle * PI/180.0, bearing - initial_bearing));
+    STATE_VAR = 1;
+}
+
+void move_robot(float dist){ //dist is in ft
+    STATE_VAR = 3;
+
+    float initial_position = linearPos;
+    while(move_linear(-dist, linearPos - initial_position));
+    STATE_VAR = 1;
+
+}
+
+
 
 // Lab 7: AMP DBC TN MZ: intiialize PID values for balancing
 float vel_Right = 0;
@@ -632,9 +763,13 @@ float ubal_next = 0;
 __interrupt void SWI_isr(void)
 {
     // Lab 7: AMP DBC TN MZ: Labview communication
-    labview_comms();
     leftWheel = readEncLeft(); // Lab 7: AMP DBC TN MZ: get wheel radians per second
     rightWheel = readEncRight();
+    leftDistance = leftWheel / 5.061; //feet traveled
+    rightDistance = rightWheel / 5.061;
+    linearPos = (leftDistance + rightDistance)/2.0;
+    calculateRobotPose();
+    labview_comms();
 
     // These three lines of code allow SWI_isr, to be interrupted by other interrupt functions
     // making it lower priority than all other Hardware interrupts.
@@ -800,47 +935,63 @@ __interrupt void cpu_timer0_isr(void)
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
 }
 
-// cpu_timer1_isr - CPU Timer1 ISR
+float e_wall_1 = 0;
+float i_wall = 0;
+
+
+
+
 __interrupt void cpu_timer1_isr(void)
 {
     numTimer1calls++;
 
-    speedRef = -2;
-    //DB implementing wall distance PI control for maze corridor movement
-    float Kp_wall = 1.5;
-    float dt = 0.004;
-    float Ki_wall = .03;
-    float wall_ref= 1;
-    float e_wall = 0;
+    if (STATE_VAR == 0) {
+        speedRef = 0;
+        turnRate = 0;
+    } else if (STATE_VAR == 1) {
+        speedRef = -2.5;
+        //DB implementing wall distance PI control for maze corridor movement
+        float Kp_wall = 1.5;
+        float dt = 0.004;
+        float Ki_wall = .03;
+        float wall_ref= 1;
+        float e_wall = 0;
+        float wall_dist_cutoff = 0.4;
+        if (IR_left  > wall_dist_cutoff && IR_right > wall_dist_cutoff) { //if both sides see a wall
+            e_wall = IR_left - IR_right;
+            if (fabs(turnRate) < 3) {
+                i_wall += (e_wall + e_wall_1)*dt/2;
+            }
+            turnRate = Kp_wall*e_wall + Ki_wall*i_wall;
+        } else if (IR_left > wall_dist_cutoff) { //if only left side sees a wall
+            e_wall = IR_left - wall_ref;
+            if (fabs(turnRate) < 3) {
+                i_wall += (e_wall + e_wall_1)*dt/2;
+            }
+            turnRate = Kp_wall*e_wall + Ki_wall*i_wall;
 
-    if (IR_left  > 0.4 && IR_right > 0.4) { //if both sides see a wall
-        e_wall = IR_left - IR_right;
-        if (fabs(turnRate) < 3) {
-            i_wall += (e_wall + e_wall_1)*dt/2;
-        }
-        turnRate = Kp_wall*e_wall + Ki_wall*i_wall;
-    } else if (IR_left > 0.4) { //if only left side sees a wall
-        e_wall = IR_left - wall_ref;
-        if (fabs(turnRate) < 3) {
-            i_wall += (e_wall + e_wall_1)*dt/2;
-        }
-        turnRate = Kp_wall*e_wall + Ki_wall*i_wall;
+        } else if (IR_right > wall_dist_cutoff) { // if only right side sees a wall
+            e_wall = wall_ref - IR_right;
+            if (fabs(turnRate) < 3) {
+                i_wall += (e_wall + e_wall_1)*dt/2;
+            }
+            turnRate = Kp_wall*e_wall + Ki_wall*i_wall;
+        } else { //nobody sees a wall
 
-    } else if (IR_right > 0.4) { // if only right side sees a wall
-        e_wall = wall_ref - IR_right;
-        if (fabs(turnRate) < 3) {
-            i_wall += (e_wall + e_wall_1)*dt/2;
         }
-        turnRate = Kp_wall*e_wall + Ki_wall*i_wall;
-    } else { //nobody sees a wall
+
+        if (turnRate > 3)
+            turnRate = 3;
+        else if (turnRate < -3)
+            turnRate = -3;
+        e_wall_1 = e_wall;
+    } else if (STATE_VAR == 2) {
+        speedRef = 0;
+
+    } else if (STATE_VAR == 3 ) {
+        turnRate = 0;
 
     }
-
-    if (turnRate > 3)
-        turnRate = 3;
-    else if (turnRate < -3)
-        turnRate = -3;
-    e_wall_1 = e_wall;
 
 
     CpuTimer1.InterruptCount++;
@@ -1039,7 +1190,6 @@ void setupSpib(void) //Call this function in main() somewhere after the DINT; li
     SpibRegs.SPICTL.bit.SPIINTENA = 1; // Enables SPI interrupt. !! I don’t think this is needed. Need to Test
     SpibRegs.SPIFFRX.bit.RXFFIL = 16; //Interrupt Level to 16 words or more received into FIFO causes interrupt. This is just the initial setting for the register. Will be changed below
 
-    int16_t temp = 0;
     //Step 1.
     // cut and paste here all the SpibRegs initializations you found for part 3. Make sure the TXdelay in
     // between each transfer to 0. Also don’t forget to cut and paste the GPIO settings for GPIO9, 63, 64, 65,
@@ -1348,19 +1498,35 @@ void calculateRobotPose(void)
 }
 
 float linear_move_kp = 4;
-float linear_move_tolerance = .01;
+float linear_move_tolerance = .1;
 
 //units of error in ft
-int move_linear(float error){
-    speedRef = linear_move_kp * error;
-    if(error < linear_move_tolerance){
-        return 1;
+int move_linear(float target, float current){
+    speedRef = linear_move_kp * (target-current);
+    if(fabs(target-current) < linear_move_tolerance){
+        return 0;
     }
     else{
-        return 0;
+        return 1;
     }
 
 }
+
+float rotate_kp = 4;
+float rotate_tolerance = .03;
+int rotate(float target, float current) {
+    turnRate = -(rotate_kp*(target-current));
+    if(fabs(target-current) < rotate_tolerance){
+        return 0;
+    }
+    else{
+        return 1;
+    }
+}
+
+
+
+
 /*
 void move(float targetX, float targetY){
     float posError = targetPos - ;
@@ -1389,14 +1555,20 @@ float b[22] = { -2.3890045153263611e-03, -3.3150057635348224e-03,
 
 float x_raw = 0;
 float y_raw = 0;
+float z_raw = 0;
+
 float x_volt = 0;
 float y_volt = 0;
+float z_volt = 0;
 
 float x_arr[22];
 float y_arr[22];
+float z_arr[22];
 
 float x_filtered = 0;
 float y_filtered = 0;
+float z_filtered = 0;
+
 __interrupt void ADCA_ISR(void)
 {
 
@@ -1414,23 +1586,29 @@ __interrupt void ADCA_ISR(void)
 
     x_raw = AdcaResultRegs.ADCRESULT0;
     y_raw = AdcaResultRegs.ADCRESULT1;
+    z_raw = AdcaResultRegs.ADCRESULT2;
 
     // Here covert ADCIND0, ADCIND1 to volts
     x_volt = x_raw / 4096.0 * 3.0;
     y_volt = y_raw / 4096.0 * 3.0;
+    z_volt = z_raw / 4096.0 * 3.0;
 
     //amp dbc clearing the values
     x_filtered = 0; //amp dbc resets the values being outputted every time so that we dont keep counting up
     y_filtered = 0;
+    z_filtered = 0;
 
     //amp dbc For loops for the filtering so that we can have many order filters
     for (int i = arr_size - 1; i > 0; i--)
     {
         x_arr[i] = x_arr[i - 1];
         y_arr[i] = y_arr[i - 1];
+        z_arr[i] = z_arr[i - 1];
+
 
         x_filtered += x_arr[i] * b[i];
         y_filtered += y_arr[i] * b[i];
+        z_filtered += z_arr[i] * b[i];
     }
     x_arr[0] = x_volt;
     x_filtered += x_arr[0] * b[0];
@@ -1438,9 +1616,13 @@ __interrupt void ADCA_ISR(void)
     y_arr[0] = y_volt;
     y_filtered += y_arr[0] * b[0];
 
+    z_arr[0] = z_volt;
+    z_filtered += z_arr[0] * b[0];
+
     //amp dbc send the voltages to global variable to be printed
-    IR_2 = x_filtered;
-    IR_1 = y_filtered;
+    IR_right = x_filtered;
+    IR_left = y_filtered;
+    IR_front = z_filtered;
 
     // Print ADCIND0 and ADCIND1’s voltage value to TeraTerm every 100ms
     //    if ((numADCD1calls % 1000) == 0)
