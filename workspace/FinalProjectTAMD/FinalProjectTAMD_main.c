@@ -522,28 +522,6 @@ void main(void)
 
 
     while (GpioDataRegs.GPADAT.bit.GPIO4){ //WAIT for button press
-
-    }
-
-    // IDLE loop. Just sit and loop forever (optional):
-    STATE_VAR = 1;
-    //rotate_robot(90.0);
-
-    explore_junction(0);
-
-    STATE_VAR = 0;
-
-
-
-    while (1)
-    {
-
-
-
-
-
-
-
         if (UARTPrint == 1)
         {
             //            serial_printf(&SerialA, "accel_x:%.3f accel_y: %.3f accel_z:%.3f gyro_x:%.3f gyro_y:%.3f gyro_z:%.3f \r \n",
@@ -564,6 +542,29 @@ void main(void)
             UARTPrint = 0;
         }
     }
+
+    // IDLE loop. Just sit and loop forever (optional):
+    STATE_VAR = 1;
+    //rotate_robot(90.0);
+
+    explore_junction(0);
+
+    STATE_VAR = 0;
+    GpioDataRegs.GPFSET.bit.GPIO160 = 1;
+
+
+
+    while (1)
+    {
+
+
+
+
+
+
+
+
+    }
 }
 
 
@@ -572,7 +573,7 @@ struct junction {
     int middle;
     int right;
 };
-float no_wall_cutoff = .6; //cutoff for no wall, below this value is no wall
+float no_wall_cutoff = .7; //cutoff for no wall, below this value is no wall
 
 struct junction sense_junction(){
 
@@ -587,7 +588,7 @@ struct junction sense_junction(){
     if(IR_right < no_wall_cutoff){
         outputJunction.right = 1;
     }
-    if(IR_front < .9){
+    if(IR_front < .8){
         outputJunction.middle = 1;
     }
 
@@ -606,7 +607,7 @@ int explore_junction(int last_turn){
         //move_robot(1); do nothing
     }
     else{ //otherwise, move to the center of the tile
-        move_robot(1.2);
+        move_robot(1.15);
     }
 
     currJunction = sense_junction();
@@ -639,13 +640,13 @@ int explore_junction(int last_turn){
     }
 
     rotate_robot(180);
-    move_robot(1.2);
+    move_robot(1.3);
     currJunction = sense_junction();
 
     while((!currJunction.left && !currJunction.right && currJunction.middle)){ //backtrack to last junction
         currJunction = sense_junction();
     }
-    move_robot(1.2);
+    move_robot(1.1);
     rotate_robot(90*last_turn); //return robot to initial orientation at backtracked junction
     return 0;
 }
@@ -945,18 +946,18 @@ __interrupt void cpu_timer1_isr(void)
 {
     numTimer1calls++;
 
-    if (STATE_VAR == 0) {
+    if (STATE_VAR == 0) { //init
         speedRef = 0;
         turnRate = 0;
     } else if (STATE_VAR == 1) {
-        speedRef = -2.5;
+        speedRef = -2.2;
         //DB implementing wall distance PI control for maze corridor movement
-        float Kp_wall = 1.5;
+        float Kp_wall = /*1.5*/ .75;
         float dt = 0.004;
-        float Ki_wall = .03;
+        float Ki_wall = /*.03*/ 0;
         float wall_ref= 1;
         float e_wall = 0;
-        float wall_dist_cutoff = 0.4;
+        float wall_dist_cutoff = no_wall_cutoff;
         if (IR_left  > wall_dist_cutoff && IR_right > wall_dist_cutoff) { //if both sides see a wall
             e_wall = IR_left - IR_right;
             if (fabs(turnRate) < 3) {
@@ -990,6 +991,9 @@ __interrupt void cpu_timer1_isr(void)
 
     } else if (STATE_VAR == 3 ) {
         turnRate = 0;
+
+    }
+    else if (STATE_VAR == 4){
 
     }
 
@@ -1498,7 +1502,7 @@ void calculateRobotPose(void)
 }
 
 float linear_move_kp = 4;
-float linear_move_tolerance = .1;
+float linear_move_tolerance = .05;
 
 //units of error in ft
 int move_linear(float target, float current){
@@ -1512,10 +1516,13 @@ int move_linear(float target, float current){
 
 }
 
-float rotate_kp = 4;
-float rotate_tolerance = .03;
+float rotate_kp = 5;
+float rotate_tolerance = .01;
 int rotate(float target, float current) {
     turnRate = -(rotate_kp*(target-current));
+    if(fabs(turnRate) > 3){
+        turnRate = turnRate/fabs(turnRate) *3;
+    }
     if(fabs(target-current) < rotate_tolerance){
         return 0;
     }
